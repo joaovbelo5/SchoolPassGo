@@ -70,7 +70,7 @@ Antes de começar, você precisará ter instalado em sua máquina:
 
 ### 1. Clonar o repositório
 ```bash
-git clone https://github.com/joaob/schoolpassgo.git
+git clone https://github.com/joaovbelo5/schoolpassgo.git
 cd schoolpassgo
 ```
 
