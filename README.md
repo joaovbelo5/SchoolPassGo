@@ -60,60 +60,78 @@ SchoolPassGo/
 
 ## ⚙️ Pré-requisitos
 
-Antes de começar, você precisará ter instalado em sua máquina:
-- [Go 1.22 ou superior](https://go.dev/dl/)
-- Um navegador moderno (Chrome, Edge, Firefox)
+Para rodar o **SchoolPassGo** localmente, você precisa ter:
+- **Go 1.22+** (Recomendado 1.26+)
+- **Git** (Para clonar o repositório)
+- **Navegador Moderno** (Chrome, Firefox, Edge, Brave)
 
 ---
 
-## 🚀 Instalação e Configuração
+## 🚀 Instalação e Configuração (Passo a Passo)
 
-### 1. Clonar o repositório
-```bash
-git clone https://github.com/joaovbelo5/schoolpassgo.git
-cd schoolpassgo
-```
+Escolha o seu sistema operacional abaixo para seguir as instruções de instalação de forma simples e direta.
 
-### 2. Instalar dependências
-```bash
-go mod tidy
-```
+### 🪟 No Windows
 
-### 3. Executar o projeto
-```bash
-go run main.go
-```
-O servidor será iniciado em `http://localhost:8080`.
+1.  **Instalar o Go**:
+    -   Acesse [go.dev/dl](https://go.dev/dl/) e baixe o instalador para Windows (arquivo `.msi`).
+    -   Execute o arquivo baixado e siga os passos do instalador até o final ("Next", "Finish").
+2.  **Verificar a Instalação**:
+    -   Abra o **PowerShell** ou o **Prompt de Comando (CMD)** e digite: `go version`.
+    -   Se aparecer a versão do Go, a instalação foi um sucesso! (ex: `go1.26.1`).
+3.  **Instalar o Git** (Caso não tenha):
+    -   Acesse [git-scm.com](https://git-scm.com/), baixe o instalador para Windows e instale-o.
+4.  **Clonar e Executar**:
+    -   Abra o terminal em uma pasta de sua escolha e execute os comandos abaixo:
+    ```powershell
+    # Clonar o repositório
+    git clone https://github.com/joaovbelo5/schoolpassgo.git
+
+    # Entrar na pasta do projeto
+    cd schoolpassgo
+
+    # Instalar as dependências do projeto
+    go mod tidy
+
+    # Rodar a aplicação
+    go run main.go
+    ```
+
+### 🐧 No Linux (Ubuntu/Debian)
+
+1.  **Instalar o Go**:
+    ```bash
+    # 1. Baixar a versão mais recente do Go (substitua o link se houver uma nova versão)
+    wget https://go.dev/dl/go1.26.1.linux-amd64.tar.gz
+    
+    # 2. Remover versões antigas e extrair na pasta /usr/local
+    sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.1.linux-amd64.tar.gz
+    
+    # 3. Configurar a variável de ambiente (Adiciona ao final do arquivo ~/.bashrc)
+    echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+    
+    # 4. Atualizar o terminal atual para reconhecer o Go
+    source ~/.bashrc
+    ```
+2.  **Instalar Git**:
+    ```bash
+    sudo apt update && sudo apt install git -y
+    ```
+3.  **Verificar a Instalação**:
+    ```bash
+    go version
+    ```
+4.  **Clonar e Executar**:
+    ```bash
+    git clone https://github.com/joaovbelo5/schoolpassgo.git
+    cd schoolpassgo
+    go mod tidy
+    go run main.go
+    ```
 
 ---
 
-## 🐳 Implantação com Docker (Recomendado para Produção)
-
-Para rodar o SchoolPassGo de forma isolada e segura em um servidor Linux, utilize o Docker e Docker Compose.
-
-### 1. Pré-requisitos
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-
-### 2. Configuração
-Certifique-se de que os arquivos `Dockerfile` e `docker-compose.yml` estão na raiz do projeto.
-
-### 3. Iniciar o Container
-```bash
-docker-compose up -d --build
-```
-
-### 4. Persistência de Dados
-O Docker Compose está configurado para persistir automaticamente os dados no host:
-- `auth.db` e `escola.db` (Bancos de dados SQLite)
-- Pasta `uploads/` (Fotos dos alunos, logos e arquivos do "morto")
-
-Isso garante que, mesmo apagando ou atualizando o container, você não perderá seus dados.
-
-### 5. Parar o Sistema
-```bash
-docker-compose down
-```
+Após executar `go run main.go`, o servidor será iniciado em `http://localhost:8080`.
 
 
 ---
