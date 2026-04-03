@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — SchoolPassGo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-body">
+
+    <div class="login-card">
+        <!-- Logo -->
+        <div class="text-center mb-4">
+            <div class="login-logo" id="logoWrapper">
+                <i class="bi bi-mortarboard-fill"></i>
+            </div>
+            <h1 style="font-size:1.3rem;font-weight:800;color:var(--gray-900);margin:.5rem 0 .15rem" id="appName">SchoolPassGo</h1>
+            <p style="font-size:.8rem;color:var(--gray-500);margin:0">Acesso restrito ao sistema</p>
+        </div>
+
+        <!-- Form -->
+        <div class="spg-form-group">
+            <label class="spg-label">Usuário</label>
+            <div class="position-relative">
+                <i class="bi bi-person-fill login-input-icon"></i>
+                <input type="text" id="username" class="login-input" placeholder="seu.usuario" autocomplete="username" autofocus>
+            </div>
+        </div>
+
+        <div class="spg-form-group">
+            <label class="spg-label">Senha</label>
+            <div class="position-relative">
+                <i class="bi bi-lock-fill login-input-icon"></i>
+                <input type="password" id="password" class="login-input" placeholder="••••••••" autocomplete="current-password">
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div id="errorBox" class="spg-alert error d-none mb-3">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span id="errorText">Usuário ou senha incorretos</span>
+        </div>
+
+        <!-- Submit -->
+        <button class="btn-spg-primary w-100 justify-content-center mt-1" id="btnLogin" onclick="doLogin()" style="padding:.7rem;font-size:.95rem">
+            <span id="btnText"><i class="bi bi-box-arrow-in-right"></i> Entrar no Sistema</span>
+        </button>
+    </div>
+
+    <script>
+        fetch('/api/config').then(r=>r.json()).catch(()=>null).then(c=>{
+            if(!c) return;
+            if(c.nome_instituicao){
+                document.getElementById('appName').textContent = c.nome_instituicao;
+                document.title = 'Login — ' + c.nome_instituicao;
+            }
+            if(c.logo_instituicao){
+                document.getElementById('logoWrapper').innerHTML = `<img src="${c.logo_instituicao}" alt="Logo">`;
+            }
+        });
+
+        document.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+        async function doLogin(){
+            const btn = document.getElementById('btnLogin');
+            const errBox = document.getElementById('errorBox');
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            if(!username||!password){ showErr('Preencha usuário e senha.'); return; }
+
+            btn.disabled = true;
+            document.getElementById('btnText').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Autenticando...';
+            errBox.classList.add('d-none');
+
+            try {
+                const res = await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+                const data = await res.json().catch(()=>({}));
+                if(res.ok){
+                    const p = new URLSearchParams(window.location.search);
+                    window.location.href = p.get('next') || '/';
+                } else {
+                    showErr(data.error || 'Usuário ou senha incorretos.');
+                }
+            } catch(e){ showErr('Erro de conexão com o servidor.'); }
+            finally{
+                btn.disabled=false;
+                document.getElementById('btnText').innerHTML = '<i class="bi bi-box-arrow-in-right"></i> Entrar no Sistema';
+            }
+        }
+        function showErr(msg){
+            const b=document.getElementById('errorBox');
+            document.getElementById('errorText').textContent=msg;
+            b.classList.remove('d-none');
+        }
+    </script>
+</body>
+</html>

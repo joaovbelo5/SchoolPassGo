@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carômetro — SchoolPassGo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .page-header-print { display: none; }
+        .carometro-grid { display: none; margin-top: 20px; }
+        @media print {
+            body { background: white !important; margin: 0; padding: 0; }
+            .spg-nav, .no-print, .btn, #alertContainer { display: none !important; }
+            .page-header-print { display: block; }
+            .carometro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15mm 10mm; page-break-inside: auto; }
+            .student-card { page-break-inside: avoid; border: 1px solid #000; padding: 10px; text-align: center; border-radius: 8px; break-inside: avoid; }
+            .student-photo { width: 100%; height: 190px; object-fit: cover; border-radius: 4px; margin-bottom: 8px; border: 1px solid #ccc; }
+            .student-name { font-family: Arial, sans-serif; font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 2px; }
+            .student-detail { font-family: Arial, sans-serif; font-size: 11px; color: #444; }
+            .header-title { font-size: 24px; font-weight: bold; font-family: Arial, sans-serif; margin-bottom: 2px; }
+            .header-subtitle { font-size: 18px; font-weight: bold; font-family: Arial, sans-serif; margin-top: 0; }
+            .header-right { text-align: right; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px;}
+            .border-thick { border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 20px;}
+            @page { size: portrait; margin: 15mm; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="spg-nav navbar navbar-expand-lg no-print">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand" href="/">
+            <div class="brand-icon"><i class="bi bi-mortarboard-fill"></i></div>
+            <span id="navTitulo">SchoolPassGo</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+            <i class="bi bi-list fs-4"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navMain">
+            <ul class="navbar-nav ms-auto gap-1 align-items-lg-center">
+                <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-grid-fill"></i>Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" href="/admin"><i class="bi bi-people"></i>Alunos</a></li>
+                <li class="nav-item"><a class="nav-link" href="/chamada"><i class="bi bi-journal-check"></i>Chamada</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/carometro"><i class="bi bi-images"></i>Carômetro</a></li>
+                <li class="nav-item"><a class="nav-link" href="/arquivo"><i class="bi bi-archive"></i>Arquivo</a></li>
+                <li class="nav-item"><a class="nav-link" href="/settings"><i class="bi bi-gear"></i>Ajustes</a></li>
+                <li class="nav-item ms-lg-2"><a href="/totem" class="btn-totem"><i class="bi bi-display me-1"></i>Totem</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container spg-page no-print">
+    <div id="alertContainer"></div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="mb-4 text-center">
+                <h1 class="page-title">Galeria Carômetro</h1>
+                <p class="page-subtitle">Imprima o álbum de fotos oficial por turma (A4 Retrato)</p>
+            </div>
+
+            <div class="spg-card accent-green shadow-sm">
+                <div class="spg-card-header">
+                    <h6 class="spg-card-title"><i class="bi bi-images"></i> Gerador de Carômetro</h6>
+                </div>
+                <div class="spg-card-body">
+                    <div class="spg-form-group mb-4">
+                        <label class="spg-label">Selecione a Turma</label>
+                        <select class="spg-select" id="selectTurma">
+                            <option value="">Aguardando carregamento...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-check form-switch mb-4 p-3 border rounded-4 bg-light">
+                        <div class="ms-1">
+                            <input class="form-check-input" type="checkbox" role="switch" id="checkOmitirSemFoto" checked>
+                            <label class="form-check-label text-gray-700 fw-semibold" for="checkOmitirSemFoto" style="font-size:.85rem;display:block">
+                                Substituir alunos sem foto por silhueta
+                            </label>
+                            <small class="text-muted" style="font-size:.75rem">Se desmarcado, alunos sem foto não aparecerão no relatório final.</small>
+                        </div>
+                    </div>
+
+                    <div class="text-center pt-2">
+                        <button class="btn-spg-primary w-100 py-3 mb-2" id="btnGerar" onclick="buildAndPrint()">
+                            <i class="bi bi-printer-fill me-2"></i> Visualizar e Imprimir
+                        </button>
+                        <p class="small text-muted mb-0">Imprima em modo Retrato em cores para melhor resultado.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Canvas -->
+<div class="container-fluid page-header-print" id="printArea">
+    <div class="d-flex justify-content-between align-items-end border-thick">
+        <div>
+            <h2 class="header-title text-uppercase" id="printEscola">NOME DA ESCOLA</h2>
+            <h4 class="header-subtitle">Carômetro Oficial da Classe</h4>
+        </div>
+        <div class="header-right">
+            <div>Turma: <span id="printTurma"></span></div>
+            <div>Impresso em: <span id="printDataHoje"></span></div>
+        </div>
+    </div>
+    <div class="carometro-grid" id="printGrid"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/carometro.js"></script>
+</body>
+</html>

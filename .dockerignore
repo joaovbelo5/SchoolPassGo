@@ -1,0 +1,24 @@
+# Go local files
+bin/
+vendor/
+
+# SQLite Databases
+*.db
+*.db-journal
+*.db-wal
+
+# Uploads and temporary data
+uploads/*
+!uploads/.gitkeep
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docker files själva
+Dockerfile
+docker-compose.yml
+.git/
+.dockerignore

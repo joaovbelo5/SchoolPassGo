@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — SchoolPassGo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .hero-strip {
+            background: var(--green-600);
+            color: #fff;
+            padding: 1.75rem 0 1.5rem;
+        }
+        .hero-date { font-size:.8rem; opacity:.75; text-transform:uppercase; letter-spacing:.05em; }
+        .hero-school { font-size:1.5rem; font-weight:800; }
+        .live-dot { width:7px;height:7px;border-radius:50%;background:#86efac;display:inline-block;animation:pulse 2s infinite; }
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="spg-nav navbar navbar-expand-lg">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand" href="/">
+            <div class="brand-icon" id="navBrandWrap"><i class="bi bi-mortarboard-fill"></i></div>
+            <span id="navTitulo">SchoolPassGo</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+            <i class="bi bi-list fs-4"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navMain">
+            <ul class="navbar-nav ms-auto gap-1 align-items-lg-center">
+                <li class="nav-item"><a class="nav-link active" href="/"><i class="bi bi-grid-fill"></i>Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" href="/admin"><i class="bi bi-people"></i>Alunos</a></li>
+                <li class="nav-item"><a class="nav-link" href="/chamada"><i class="bi bi-journal-check"></i>Chamada</a></li>
+                <li class="nav-item"><a class="nav-link" href="/carometro"><i class="bi bi-images"></i>Carômetro</a></li>
+                <li class="nav-item"><a class="nav-link" href="/arquivo"><i class="bi bi-archive"></i>Arquivo</a></li>
+                <li class="nav-item"><a class="nav-link" href="/settings"><i class="bi bi-gear"></i>Ajustes</a></li>
+                <li class="nav-item ms-lg-2">
+                    <a href="/totem" class="btn-totem"><i class="bi bi-display me-1"></i>Totem</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero Strip -->
+<div class="hero-strip">
+    <div class="container-fluid px-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="hero-date" id="heroDate">Carregando...</div>
+                <div class="hero-school" id="heroSchool">SchoolPassGo</div>
+            </div>
+            <span style="font-size:.78rem;opacity:.75;display:flex;align-items:center;gap:.45rem">
+                <span class="live-dot"></span> Atualiza em tempo real
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Main -->
+<div class="container-fluid px-4 spg-page">
+
+    <!-- Top Stats Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="bi bi-arrow-down-circle-fill"></i></div>
+                <div><div class="stat-number" id="statEntradas">—</div><div class="stat-label">Entradas Hoje</div></div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon yellow"><i class="bi bi-arrow-up-circle-fill"></i></div>
+                <div><div class="stat-number" id="statSaidas">—</div><div class="stat-label">Saídas Hoje</div></div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+                <div><div class="stat-number" id="statAlunos">—</div><div class="stat-label">Alunos Cadastrados</div></div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon purple"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+                <div><div class="stat-number" id="statTurmas">—</div><div class="stat-label">Turmas Ativas</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shifts Row -->
+    <div class="row g-3 mb-4" id="shiftCards">
+        <div class="col-12"><p class="text-muted small text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Carregando presenças...</p></div>
+    </div>
+
+    <!-- Bottom 3-col -->
+    <div class="row g-4">
+        <!-- DB Stats -->
+        <div class="col-lg-4">
+            <div class="spg-card h-100">
+                <div class="spg-card-header">
+                    <h6 class="spg-card-title"><i class="bi bi-database-fill"></i> Dados do Sistema</h6>
+                </div>
+                <div class="spg-card-body d-flex flex-column gap-3">
+                    <div class="stat-card" style="box-shadow:none;border:1px solid var(--gray-100);padding:.9rem 1rem">
+                        <div class="stat-icon red" style="width:36px;height:36px;font-size:.95rem"><i class="bi bi-camera"></i></div>
+                        <div><div class="stat-number" id="statSemFoto" style="font-size:1.3rem">—</div><div class="stat-label">Alunos sem foto</div></div>
+                    </div>
+                    <div class="stat-card" style="box-shadow:none;border:1px solid var(--gray-100);padding:.9rem 1rem">
+                        <div class="stat-icon blue" style="width:36px;height:36px;font-size:.95rem"><i class="bi bi-telegram"></i></div>
+                        <div><div class="stat-number" id="statSemTelegram" style="font-size:1.3rem">—</div><div class="stat-label">Sem Telegram vinculado</div></div>
+                    </div>
+                    <div class="stat-card" style="box-shadow:none;border:1px solid var(--gray-100);padding:.9rem 1rem">
+                        <div class="stat-icon yellow" style="width:36px;height:36px;font-size:.95rem"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                        <div><div class="stat-number" id="statOcorrencias" style="font-size:1.3rem">—</div><div class="stat-label">Ocorrências ativas</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Access -->
+        <div class="col-lg-4">
+            <div class="spg-card h-100">
+                <div class="spg-card-header">
+                    <h6 class="spg-card-title"><i class="bi bi-lightning-fill"></i> Acesso Rápido</h6>
+                </div>
+                <div class="spg-card-body d-flex flex-column gap-2">
+                    <a href="/admin" class="shortcut-item">
+                        <div class="shortcut-icon" style="background:var(--green-100);color:var(--green-700)"><i class="bi bi-people-fill"></i></div>
+                        <div><div style="font-weight:600;font-size:.875rem">Gerenciar Alunos</div><div style="font-size:.75rem;color:var(--gray-500)">Cadastrar, editar, ocorrências</div></div>
+                        <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:.75rem"></i>
+                    </a>
+                    <a href="/totem" class="shortcut-item">
+                        <div class="shortcut-icon" style="background:var(--green-100);color:var(--green-700)"><i class="bi bi-display"></i></div>
+                        <div><div style="font-weight:600;font-size:.875rem">Totem de Portaria</div><div style="font-size:.75rem;color:var(--gray-500)">Registrar entrada e saída</div></div>
+                        <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:.75rem"></i>
+                    </a>
+                    <a href="/chamada" class="shortcut-item">
+                        <div class="shortcut-icon" style="background:#fef3c7;color:#92400e"><i class="bi bi-journal-check"></i></div>
+                        <div><div style="font-weight:600;font-size:.875rem">Diário de Frequência</div><div style="font-size:.75rem;color:var(--gray-500)">Gerar chamada para impressão</div></div>
+                        <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:.75rem"></i>
+                    </a>
+                    <a href="/carometro" class="shortcut-item">
+                        <div class="shortcut-icon" style="background:#ede9fe;color:#5b21b6"><i class="bi bi-images"></i></div>
+                        <div><div style="font-weight:600;font-size:.875rem">Carômetro</div><div style="font-size:.75rem;color:var(--gray-500)">Galeria de fotos por turma</div></div>
+                        <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:.75rem"></i>
+                    </a>
+                    <a href="/arquivo" class="shortcut-item">
+                        <div class="shortcut-icon" style="background:var(--gray-100);color:var(--gray-500)"><i class="bi bi-archive-fill"></i></div>
+                        <div><div style="font-weight:600;font-size:.875rem">Arquivo Morto</div><div style="font-size:.75rem;color:var(--gray-500)">Anos letivos anteriores</div></div>
+                        <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:.75rem"></i>
+                    </a>
+                    <a href="/settings" class="shortcut-item">
+                        <div class="shortcut-icon" style="background:var(--gray-100);color:var(--gray-500)"><i class="bi bi-gear-fill"></i></div>
+                        <div><div style="font-weight:600;font-size:.875rem">Configurações</div><div style="font-size:.75rem;color:var(--gray-500)">Backup, Telegram, dados escola</div></div>
+                        <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:.75rem"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Accesses -->
+        <div class="col-lg-4">
+            <div class="spg-card h-100">
+                <div class="spg-card-header">
+                    <h6 class="spg-card-title"><i class="bi bi-clock-history"></i> Últimos Acessos</h6>
+                </div>
+                <div class="spg-card-body" id="recentAccesses">
+                    <p class="text-muted small text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Carregando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>

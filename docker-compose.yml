@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./auth.db:/root/auth.db
+      - ./escola.db:/root/escola.db
+      - ./uploads:/root/uploads
+    # (Optional) Environment variables for Telegram Bot
+    # environment:
+    #   - TELEGRAM_BOT_TOKEN=your_token_here
+    restart: always
+
+# All databases and user uploads are persisted on the host in the current directory.

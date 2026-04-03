@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alunos — SchoolPassGo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="spg-nav navbar navbar-expand-lg no-print">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand" href="/">
+            <div class="brand-icon" id="navBrandWrap"><i class="bi bi-mortarboard-fill"></i></div>
+            <span id="navTitulo">SchoolPassGo</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+            <i class="bi bi-list fs-4"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navMain">
+            <ul class="navbar-nav ms-auto gap-1 align-items-lg-center">
+                <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-grid-fill"></i>Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/admin"><i class="bi bi-people"></i>Alunos</a></li>
+                <li class="nav-item"><a class="nav-link" href="/chamada"><i class="bi bi-journal-check"></i>Chamada</a></li>
+                <li class="nav-item"><a class="nav-link" href="/carometro"><i class="bi bi-images"></i>Carômetro</a></li>
+                <li class="nav-item"><a class="nav-link" href="/arquivo"><i class="bi bi-archive"></i>Arquivo</a></li>
+                <li class="nav-item"><a class="nav-link" href="/settings"><i class="bi bi-gear"></i>Ajustes</a></li>
+                <li class="nav-item ms-lg-2"><a href="/totem" class="btn-totem"><i class="bi bi-display me-1"></i>Totem</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-4 spg-page no-print">
+    <div id="alertContainer"></div>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h1 class="page-title" id="pageTitle">Gestão de Alunos</h1>
+            <p class="page-subtitle">Cadastre, edite e gerencie os alunos da instituição</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn-spg-outline" id="btnBatchPrint" onclick="openBatchPrintModal()">
+                <i class="bi bi-printer-fill"></i> Imprimir Lote
+            </button>
+            <button class="btn-spg-primary" data-bs-toggle="modal" data-bs-target="#studentModal" id="btnNewStudent">
+                <i class="bi bi-plus-lg"></i> Novo Aluno
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="spg-card">
+        <!-- Filters — Alunos view -->
+        <div class="spg-card-header" id="alunosFilterSection">
+            <div class="d-flex gap-2 w-100 flex-wrap">
+                <!-- Tab buttons (functional, not real tabs, just JS toggles) -->
+                <div class="d-flex gap-1 me-2">
+                    <button class="btn-spg-primary" id="tabBtnAlunos" onclick="showAlunosView()">
+                        <i class="bi bi-people-fill"></i> Alunos
+                    </button>
+                    <button class="btn-spg-ghost" id="tabBtnAcessos" onclick="loadAcessos()">
+                        <i class="bi bi-clock-history"></i> Histórico
+                    </button>
+                </div>
+                <div class="spg-search" style="flex:1;min-width:200px">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchStudent" placeholder="Buscar por nome ou código..." oninput="applyFilters()">
+                </div>
+                <select class="spg-select" id="filterTurma" onchange="applyFilters()" style="max-width:200px">
+                    <option value="">Todas as turmas</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Filters — Acessos view -->
+        <div class="spg-card-header d-none" id="acessosFilterSection">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <div class="d-flex gap-1 me-2">
+                    <button class="btn-spg-ghost" onclick="showAlunosView()">
+                        <i class="bi bi-people-fill"></i> Alunos
+                    </button>
+                    <button class="btn-spg-primary" id="tabBtnAcessos2">
+                        <i class="bi bi-clock-history"></i> Histórico
+                    </button>
+                </div>
+                <div class="position-relative">
+                    <i class="bi bi-calendar-date" style="position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--gray-400)"></i>
+                    <input type="date" class="spg-input" id="filterDataAcessos" onchange="loadAcessos()" style="padding-left:2.2rem;max-width:180px">
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+
+            <!-- Students Table -->
+            <table class="spg-table" id="alunosTable">
+                <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Nome</th>
+                        <th>Turma</th>
+                        <th>Turno</th>
+                        <th>Código</th>
+                        <th class="text-end pe-4">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="alunosList"></tbody>
+            </table>
+
+            <!-- Acessos Table (hidden by default) -->
+            <table class="spg-table d-none" id="acessosTable">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Aluno</th>
+                        <th>Turma</th>
+                        <th>Tipo</th>
+                    </tr>
+                </thead>
+                <tbody id="acessosList"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ──── Modals (structure identical, styling updated) ──── -->
+
+<!-- Student Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" id="studentModalTitle">Cadastrar Aluno</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="studentForm">
+                    <input type="hidden" id="alunoId">
+                    <div class="spg-form-group">
+                        <label class="spg-label">Nome Completo</label>
+                        <input type="text" id="alunoNome" class="spg-input" required>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-4 spg-form-group">
+                            <label class="spg-label">Turma</label>
+                            <input type="text" id="alunoTurma" class="spg-input" required>
+                        </div>
+                        <div class="col-md-4 spg-form-group">
+                            <label class="spg-label">Turno</label>
+                            <select id="alunoTurno" class="spg-select" required>
+                                <option value="Manhã">Manhã</option>
+                                <option value="Tarde">Tarde</option>
+                                <option value="Noite">Noite</option>
+                                <option value="Integral">Integral</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 spg-form-group">
+                            <label class="spg-label">Cód. Barras</label>
+                            <input type="text" id="alunoCodigo" class="spg-input" placeholder="Automático">
+                        </div>
+                    </div>
+                    <div class="spg-form-group">
+                        <label class="spg-label"><i class="bi bi-telegram text-primary me-1"></i> Telefone Telegram (DDI+DDD+Nº)</label>
+                        <input type="text" id="alunoTelefone" class="spg-input" placeholder="Ex: 5511999999999">
+                    </div>
+
+                    <hr style="border-color:var(--gray-100)">
+                    <p class="fw-semibold" style="font-size:.875rem;margin-bottom:.75rem">Foto do Aluno</p>
+
+                    <ul class="nav nav-pills mb-3 nav-justified" id="photoTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active rounded-3 fw-semibold" data-bs-toggle="tab" data-bs-target="#tabUpload" type="button">Upload</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link rounded-3 fw-semibold" data-bs-toggle="tab" data-bs-target="#tabWebcam" type="button">Webcam</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active text-center py-2" id="tabUpload">
+                            <input class="spg-input" type="file" id="alunoFotoFile" accept="image/png, image/jpeg">
+                        </div>
+                        <div class="tab-pane fade py-2 text-center" id="tabWebcam">
+                            <video id="webcamVideo" width="100%" class="rounded d-none" style="background:#000" autoplay playsinline></video>
+                            <canvas id="webcamCanvas" class="d-none"></canvas>
+                            <div class="mt-2 d-flex gap-2 justify-content-center">
+                                <button type="button" class="btn-spg-ghost" id="btnStartWebcam"><i class="bi bi-camera-video"></i> Iniciar Câmera</button>
+                                <button type="button" class="btn-spg-primary d-none" id="btnCaptureWebcam"><i class="bi bi-camera"></i> Capturar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-3 d-none" id="previewContainer">
+                        <img id="photoPreview" src="" class="rounded-circle border object-fit-cover" style="width:100px;height:100px;">
+                        <input type="hidden" id="alunoFotoBase64">
+                        <div class="mt-2">
+                            <button type="button" class="btn-spg-danger" id="btnClearPhoto">Remover Foto</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn-spg-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn-spg-primary" id="btnSaveStudent">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ID Card Modal -->
+<div class="modal fade" id="barcodeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0 d-print-none">
+                <h5 class="modal-title fw-bold">Carteirinha Virtual</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 d-flex justify-content-center" style="background:var(--gray-50)" id="printArea">
+                <div class="id-card bg-white shadow-sm">
+                    <!-- Frente -->
+                    <div class="id-card-side id-card-front">
+                        <div class="top-green-stripe"></div>
+                        <div class="d-flex align-items-center justify-content-center w-100 mb-2 mt-2" style="height:40px;padding:0 5px">
+                            <img id="cardLogo" src="" class="me-2 object-fit-contain d-none" style="max-height:35px;max-width:45px">
+                            <div id="cardEscolaNome" class="fw-bolder lh-sm text-start" style="font-size:11px;color:#0f5132">NOME DA ESCOLA</div>
+                        </div>
+                        <div class="bg-light border rounded mb-1 overflow-hidden mx-auto" style="width:80px;height:105px">
+                            <img id="cardFoto" src="" class="w-100 h-100 object-fit-cover">
+                        </div>
+                        <div class="w-100 px-2 text-truncate fw-bolder text-uppercase" id="cardAlunoNome" style="font-size:11px;color:#002c4b;line-height:1.1">NOME ALUNO</div>
+                        <div class="d-flex justify-content-center gap-2 w-100 mt-1">
+                            <div class="bg-light border rounded px-1 py-1 text-center" style="width:50px">
+                                <div style="font-size:7px;color:#6c757d;font-weight:bold">TURMA</div>
+                                <div id="cardTurma" style="font-size:9px;color:#0d6efd;font-weight:bold">---</div>
+                            </div>
+                            <div class="bg-light border rounded px-1 py-1 text-center" style="width:50px">
+                                <div style="font-size:7px;color:#6c757d;font-weight:bold">TURNO</div>
+                                <div id="cardTurno" style="font-size:9px;color:#198754;font-weight:bold">---</div>
+                            </div>
+                        </div>
+                        <div class="bg-light border rounded w-100 mt-1 py-1 fw-bold text-secondary" id="cardMatriculaText" style="font-size:11px;letter-spacing:1px">123456789</div>
+                        <div class="bg-success text-white px-2 py-1 rounded-pill fw-bold mt-1" style="font-size:9px" id="cardValidade">VALIDADE: 31/12/2026</div>
+                    </div>
+                    <!-- Verso -->
+                    <div class="id-card-side id-card-back">
+                        <div class="top-green-stripe"></div>
+                        <div class="fw-bold mt-2 mb-1 px-2" id="cardBackEscolaNome" style="color:#0f5132;font-size:11px;line-height:1.2">ESCOLA</div>
+                        <div class="text-secondary mb-3 w-100 px-2" style="font-size:9px;line-height:1.2">
+                            <div id="cardEndereco" class="text-truncate">—</div>
+                            <div id="cardTelefone">—</div>
+                        </div>
+                        <div class="border rounded px-1 py-1 bg-white w-100 d-flex flex-column align-items-center justify-content-center" style="min-height:80px">
+                            <svg id="barcodeCanvas"></svg>
+                        </div>
+                        <div class="mt-auto w-100 pb-1">
+                            <div class="d-flex justify-content-center position-relative mb-2" style="height:50px">
+                                <img id="cardAssinatura" src="" class="object-fit-contain d-none" style="height:65px;width:130px;position:absolute;bottom:0;z-index:1">
+                                <div class="w-75 border-bottom border-dark position-absolute" style="bottom:8px"></div>
+                            </div>
+                            <div style="font-size:8px;color:#002c4b;font-weight:bold">DIREÇÃO / SECRETARIA</div>
+                            <div style="font-size:8px;color:#6c757d" id="cardEmissao">Emitido em: —</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 d-print-none" style="background:var(--gray-50)">
+                <button type="button" class="btn-spg-ghost" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn-spg-primary" onclick="window.print()"><i class="bi bi-printer-fill"></i> Imprimir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold">Histórico do Aluno</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive" style="max-height:400px">
+                    <table class="spg-table">
+                        <thead><tr><th>Data e Hora</th><th>Tipo</th></tr></thead>
+                        <tbody id="studentHistoryList"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn-spg-ghost" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Print Modal -->
+<div class="modal fade" id="batchPrintModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold">Impressão em Lote</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small">Gera folha A4 com múltiplas carteirinhas. Pode levar alguns segundos.</p>
+                <div class="spg-form-group">
+                    <label class="spg-label">Filtrar por Turma</label>
+                    <select id="batchPrintTurma" class="spg-select"></select>
+                </div>
+                <div class="form-check form-switch mt-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="batchPrintFotoOnly" checked>
+                    <label class="form-check-label text-muted" for="batchPrintFotoOnly">Apenas alunos com foto (recomendado)</label>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn-spg-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn-spg-primary" onclick="executeBatchPrint()"><i class="bi bi-gear-fill"></i> Gerar e Imprimir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="batchPrintArea"></div>
+
+<!-- Ocorrencias Modal -->
+<div class="modal fade" id="ocorrenciaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold" id="ocorrenciaModalTitle">Ocorrências Disciplinares</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 pt-0">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted fw-semibold" id="ocorrenciaAlunoNome"></span>
+                    <button class="btn-spg-danger" onclick="novaOcorrencia()"><i class="bi bi-plus-lg me-1"></i> Nova Ocorrência</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="spg-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th><th>Classificação</th><th>Registrado por</th><th class="text-end pe-4">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ocorrenciasList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ocorrencia Form Modal -->
+<div class="modal fade" id="ocorrenciaFormModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold" id="ocorrenciaFormTitle">Nova Ocorrência</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 pt-0">
+                <form id="ocorrenciaForm">
+                    <input type="hidden" id="ocorrenciaID">
+                    <input type="hidden" id="ocorrenciaAlunoID">
+                    <div class="spg-form-group">
+                        <label class="spg-label">Classificação</label>
+                        <select id="ocClassificacao" class="spg-select">
+                            <option value="Advertência Verbal">Advertência Verbal</option>
+                            <option value="Advertência Escrita">Advertência Escrita</option>
+                            <option value="Suspensão 1 Dia">Suspensão 1 Dia</option>
+                            <option value="Suspensão 2 Dias">Suspensão 2 Dias</option>
+                            <option value="Suspensão 3 Dias">Suspensão 3 Dias</option>
+                            <option value="Nenhuma Medida Recomendada">Nenhuma Medida Recomendada</option>
+                        </select>
+                    </div>
+                    <div class="spg-form-group">
+                        <label class="spg-label">Descrição do Ocorrido</label>
+                        <textarea id="ocDescricao" class="spg-textarea" rows="4" placeholder="Detalhes do incidente..."></textarea>
+                    </div>
+                    <div class="spg-form-group">
+                        <label class="spg-label">Registrado Por</label>
+                        <input type="text" id="ocAutor" class="spg-input" placeholder="Nome do responsável/professor">
+                    </div>
+                    <div class="p-3 rounded" style="background:var(--green-50);border:1px solid var(--green-200)">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="ocEnviarTelegram" checked>
+                            <label class="form-check-label fw-semibold text-success" for="ocEnviarTelegram">
+                                <i class="bi bi-telegram me-1"></i> Notificar a família via Telegram
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn-spg-ghost" data-bs-dismiss="modal">Voltar</button>
+                <button type="button" class="btn-spg-danger" id="btnSaveOcorrencia" onclick="salvarOcorrencia()">Salvar Ocorrência</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historico Edicao Modal -->
+<div class="modal fade" id="historicoEdicaoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-semibold text-muted">Histórico de Alterações</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 pt-0" id="historicoEdicaoBody"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/admin.js"></script>
+</body>
+</html>
