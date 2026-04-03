@@ -76,6 +76,8 @@ func main() {
 	mux.HandleFunc("PUT /api/alunos/{id}", handlers.UpdateAlunoHandler)
 	mux.HandleFunc("DELETE /api/alunos/{id}", handlers.DeleteAlunoHandler)
 	mux.HandleFunc("GET /api/alunos/{id}/acessos", handlers.GetAcessosAlunoHandler)
+	mux.HandleFunc("POST /api/alunos/importar", handlers.ImportAlunosHandler)
+	mux.HandleFunc("POST /api/alunos/importar/confirmar", handlers.ConfirmImportAlunosHandler)
 	
 	mux.HandleFunc("GET /api/alunos/{id}/ocorrencias", handlers.GetOcorrenciasHandler)
 	mux.HandleFunc("POST /api/alunos/{id}/ocorrencias", handlers.CreateOcorrenciaHandler)

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,11 +17,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/joaob/schoolpassgo/internal/database"
 	"github.com/joaob/schoolpassgo/internal/models"
 	"github.com/joaob/schoolpassgo/internal/repository"
 	"github.com/joaob/schoolpassgo/internal/telegram"
+	"github.com/xuri/excelize/v2"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 // API Error Response
@@ -757,4 +763,249 @@ func RestaurarHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, http.StatusOK, map[string]string{"message": "Sistema restaurado com sucesso!"})
+}
+
+// ──── IMPORTAÇÃO DE ALUNOS (CSV/XLSX) ────
+
+// normalizeHeader removes accents and lowercases a string for fuzzy column matching
+func normalizeHeader(s string) string {
+	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+	result, _, _ := transform.String(t, s)
+	return strings.ToLower(strings.TrimSpace(result))
+}
+
+// findColumnIndex finds the index of a column matching any of the given normalized names
+func findColumnIndex(headers []string, names ...string) int {
+	for i, h := range headers {
+		normalized := normalizeHeader(h)
+		for _, name := range names {
+			if normalized == name {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// ImportPreviewItem represents a single student parsed from the file, with duplicate info
+type ImportPreviewItem struct {
+	Nome      string `json:"nome"`
+	Turma     string `json:"turma"`
+	Turno     string `json:"turno"`
+	Duplicado bool   `json:"duplicado"`
+	Linha     int    `json:"linha"`
+}
+
+// ImportAlunosHandler parses a CSV or XLSX file and returns a preview of students found
+func ImportAlunosHandler(w http.ResponseWriter, r *http.Request) {
+	// Limit upload size to 10MB
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+
+	file, header, err := r.FormFile("arquivo")
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "Arquivo não encontrado na requisição: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "Erro ao ler arquivo: "+err.Error())
+		return
+	}
+
+	var rows [][]string
+	filename := strings.ToLower(header.Filename)
+
+	if strings.HasSuffix(filename, ".xlsx") || strings.HasSuffix(filename, ".xls") {
+		// Parse Excel
+		f, err := excelize.OpenReader(bytes.NewReader(data))
+		if err != nil {
+			sendError(w, http.StatusBadRequest, "Erro ao abrir arquivo Excel: "+err.Error())
+			return
+		}
+		defer f.Close()
+
+		// Use first sheet
+		sheetName := f.GetSheetName(0)
+		if sheetName == "" {
+			sendError(w, http.StatusBadRequest, "Arquivo Excel sem planilhas")
+			return
+		}
+
+		xlRows, err := f.GetRows(sheetName)
+		if err != nil {
+			sendError(w, http.StatusBadRequest, "Erro ao ler planilha: "+err.Error())
+			return
+		}
+		rows = xlRows
+
+	} else if strings.HasSuffix(filename, ".csv") {
+		// Parse CSV — try semicolon first (common in BR), then comma
+		reader := csv.NewReader(bytes.NewReader(data))
+		reader.Comma = ';'
+		reader.LazyQuotes = true
+		reader.FieldsPerRecord = -1
+
+		csvRows, err := reader.ReadAll()
+		if err != nil || len(csvRows) == 0 {
+			// Retry with comma
+			reader2 := csv.NewReader(bytes.NewReader(data))
+			reader2.Comma = ','
+			reader2.LazyQuotes = true
+			reader2.FieldsPerRecord = -1
+			csvRows, err = reader2.ReadAll()
+			if err != nil {
+				sendError(w, http.StatusBadRequest, "Erro ao ler CSV: "+err.Error())
+				return
+			}
+		}
+
+		// Heuristic: if semicolon parse gave 1 column but data contains commas, retry with comma
+		if len(csvRows) > 0 && len(csvRows[0]) <= 1 && strings.Contains(string(data), ",") {
+			reader2 := csv.NewReader(bytes.NewReader(data))
+			reader2.Comma = ','
+			reader2.LazyQuotes = true
+			reader2.FieldsPerRecord = -1
+			if csvRows2, err2 := reader2.ReadAll(); err2 == nil && len(csvRows2) > 0 && len(csvRows2[0]) > 1 {
+				csvRows = csvRows2
+			}
+		}
+
+		rows = csvRows
+	} else {
+		sendError(w, http.StatusBadRequest, "Formato de arquivo não suportado. Use .csv ou .xlsx")
+		return
+	}
+
+	if len(rows) < 2 {
+		sendError(w, http.StatusBadRequest, "Arquivo vazio ou sem dados suficientes (apenas cabeçalho)")
+		return
+	}
+
+	// Find column indices from header row
+	headerRow := rows[0]
+	colNome := findColumnIndex(headerRow, "aluno", "nome", "nome do aluno", "nome completo", "estudante")
+	colTurma := findColumnIndex(headerRow, "turma", "classe", "sala")
+	colTurno := findColumnIndex(headerRow, "turno", "periodo", "horario")
+
+	if colNome == -1 {
+		sendError(w, http.StatusBadRequest, "Coluna 'Aluno' ou 'Nome' não encontrada no cabeçalho. Colunas detectadas: "+strings.Join(headerRow, ", "))
+		return
+	}
+
+	// Load existing students for duplicate detection
+	existingStudents, _ := repository.GetAlunos()
+	existingSet := make(map[string]bool)
+	for _, s := range existingStudents {
+		key := strings.ToLower(strings.TrimSpace(s.Nome)) + "|" + strings.ToLower(strings.TrimSpace(s.Turma))
+		existingSet[key] = true
+	}
+
+	var result []ImportPreviewItem
+
+	for i := 1; i < len(rows); i++ {
+		row := rows[i]
+		if colNome >= len(row) {
+			continue
+		}
+
+		nome := strings.TrimSpace(row[colNome])
+		if nome == "" {
+			continue
+		}
+
+		turma := ""
+		if colTurma >= 0 && colTurma < len(row) {
+			turma = strings.TrimSpace(row[colTurma])
+		}
+
+		turno := ""
+		if colTurno >= 0 && colTurno < len(row) {
+			turno = strings.TrimSpace(row[colTurno])
+		}
+
+		// Check if duplicate
+		key := strings.ToLower(nome) + "|" + strings.ToLower(turma)
+		duplicado := existingSet[key]
+
+		result = append(result, ImportPreviewItem{
+			Nome:      nome,
+			Turma:     turma,
+			Turno:     turno,
+			Duplicado: duplicado,
+			Linha:     i + 1, // 1-indexed, accounting for header
+		})
+	}
+
+	if len(result) == 0 {
+		sendError(w, http.StatusBadRequest, "Nenhum aluno encontrado no arquivo. Verifique se a coluna 'Aluno' ou 'Nome' contém dados.")
+		return
+	}
+
+	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"alunos":  result,
+		"colunas": map[string]interface{}{
+			"nome":  colNome >= 0,
+			"turma": colTurma >= 0,
+			"turno": colTurno >= 0,
+		},
+	})
+}
+
+// ConfirmImportRequest is the request body for confirming student import
+type ConfirmImportRequest struct {
+	Alunos []struct {
+		Nome  string `json:"nome"`
+		Turma string `json:"turma"`
+		Turno string `json:"turno"`
+	} `json:"alunos"`
+}
+
+// ConfirmImportAlunosHandler inserts confirmed students into the database
+func ConfirmImportAlunosHandler(w http.ResponseWriter, r *http.Request) {
+	var req ConfirmImportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendError(w, http.StatusBadRequest, "Dados inválidos: "+err.Error())
+		return
+	}
+
+	if len(req.Alunos) == 0 {
+		sendError(w, http.StatusBadRequest, "Nenhum aluno para importar")
+		return
+	}
+
+	importados := 0
+	erros := 0
+
+	for _, a := range req.Alunos {
+		if strings.TrimSpace(a.Nome) == "" {
+			erros++
+			continue
+		}
+
+		aluno := models.Aluno{
+			Nome:  strings.TrimSpace(a.Nome),
+			Turma: strings.TrimSpace(a.Turma),
+			Turno: strings.TrimSpace(a.Turno),
+			CodigoBarras: generateBarcode(),
+		}
+
+		if _, err := repository.CreateAluno(aluno); err != nil {
+			erros++
+			continue
+		}
+		importados++
+	}
+
+	msg := fmt.Sprintf("%d aluno(s) importado(s) com sucesso!", importados)
+	if erros > 0 {
+		msg += fmt.Sprintf(" (%d erro(s) durante a importação)", erros)
+	}
+
+	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"message":    msg,
+		"importados": importados,
+		"erros":      erros,
+	})
 }

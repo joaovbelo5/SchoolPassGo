@@ -726,3 +726,221 @@ function verHistoricoEdicaoOcorrencia(oID) {
     if(!historicoEdicaoModal) historicoEdicaoModal = new bootstrap.Modal(document.getElementById('historicoEdicaoModal'));
     historicoEdicaoModal.show();
 }
+
+// ──── IMPORTAÇÃO DE ALUNOS (CSV/XLSX) ────
+
+let importModal = null;
+let importPreviewData = [];
+
+function openImportModal() {
+    if (!importModal) {
+        importModal = new bootstrap.Modal(document.getElementById('importModal'));
+    }
+    resetImportModal();
+    importModal.show();
+}
+
+function resetImportModal() {
+    importPreviewData = [];
+    document.getElementById('importDropZone').classList.remove('d-none');
+    document.getElementById('importPreviewSection').classList.add('d-none');
+    document.getElementById('importLoading').classList.add('d-none');
+    document.getElementById('btnConfirmImport').classList.add('d-none');
+    document.getElementById('importFileInput').value = '';
+    document.getElementById('importPreviewBody').innerHTML = '';
+    document.getElementById('importDuplicateToggle').classList.add('d-none');
+    const dupCheck = document.getElementById('importIncludeDuplicates');
+    if (dupCheck) dupCheck.checked = false;
+}
+
+// Setup drag-and-drop & file input events
+document.addEventListener('DOMContentLoaded', () => {
+    const dropZone = document.getElementById('importDropZone');
+    const fileInput = document.getElementById('importFileInput');
+
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--green-500)';
+            dropZone.style.background = 'var(--green-50)';
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--gray-300)';
+            dropZone.style.background = 'var(--gray-50)';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--gray-300)';
+            dropZone.style.background = 'var(--gray-50)';
+            if (e.dataTransfer.files.length > 0) {
+                handleImportFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                handleImportFile(fileInput.files[0]);
+            }
+        });
+
+        // Duplicate toggle handler
+        const dupToggle = document.getElementById('importIncludeDuplicates');
+        if (dupToggle) {
+            dupToggle.addEventListener('change', () => {
+                renderImportPreview();
+            });
+        }
+    }
+});
+
+async function handleImportFile(file) {
+    const validExts = ['.csv', '.xlsx', '.xls'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!validExts.includes(ext)) {
+        showAlert('Formato inválido. Use .csv ou .xlsx', 'danger');
+        return;
+    }
+
+    // Show loading, hide drop zone
+    document.getElementById('importDropZone').classList.add('d-none');
+    document.getElementById('importLoading').classList.remove('d-none');
+
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    try {
+        const resp = await fetch('/api/alunos/importar', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            throw new Error(data.error || 'Erro ao processar arquivo');
+        }
+
+        importPreviewData = data.alunos || [];
+
+        document.getElementById('importLoading').classList.add('d-none');
+        document.getElementById('importPreviewSection').classList.remove('d-none');
+        document.getElementById('btnConfirmImport').classList.remove('d-none');
+
+        renderImportPreview();
+    } catch (err) {
+        document.getElementById('importLoading').classList.add('d-none');
+        document.getElementById('importDropZone').classList.remove('d-none');
+        showAlert('Erro na importação: ' + err.message, 'danger');
+    }
+}
+
+function renderImportPreview() {
+    const tbody = document.getElementById('importPreviewBody');
+    tbody.innerHTML = '';
+
+    const includeDups = document.getElementById('importIncludeDuplicates').checked;
+    const totalCount = importPreviewData.length;
+    const dupCount = importPreviewData.filter(a => a.duplicado).length;
+
+    // Update badges
+    document.getElementById('importTotalBadge').textContent = `${totalCount} aluno(s) encontrado(s)`;
+
+    const dupBadge = document.getElementById('importDupBadge');
+    const dupToggle = document.getElementById('importDuplicateToggle');
+    if (dupCount > 0) {
+        dupBadge.textContent = `${dupCount} duplicado(s)`;
+        dupBadge.classList.remove('d-none');
+        dupToggle.classList.remove('d-none');
+    } else {
+        dupBadge.classList.add('d-none');
+        dupToggle.classList.add('d-none');
+    }
+
+    importPreviewData.forEach((aluno, idx) => {
+        const tr = document.createElement('tr');
+        const isDup = aluno.duplicado;
+
+        if (isDup) {
+            tr.style.background = includeDups ? '#fff3cd' : '#f8f9fa';
+            tr.style.opacity = includeDups ? '1' : '0.5';
+        }
+
+        const statusBadge = isDup
+            ? `<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i>Duplicado</span>`
+            : `<span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Novo</span>`;
+
+        tr.innerHTML = `
+            <td class="text-muted" style="font-size: .85rem">${aluno.linha}</td>
+            <td class="fw-semibold">${escapeHtml(aluno.nome)}</td>
+            <td>${escapeHtml(aluno.turma || '—')}</td>
+            <td>${escapeHtml(aluno.turno || '—')}</td>
+            <td class="text-center">${statusBadge}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Update confirm button count
+    const toImport = includeDups ? totalCount : (totalCount - dupCount);
+    const btn = document.getElementById('btnConfirmImport');
+    btn.innerHTML = `<i class="bi bi-check-lg me-1"></i> Confirmar Importação (${toImport})`;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+async function confirmImport() {
+    const includeDups = document.getElementById('importIncludeDuplicates').checked;
+    
+    let toImport = importPreviewData;
+    if (!includeDups) {
+        toImport = toImport.filter(a => !a.duplicado);
+    }
+
+    if (toImport.length === 0) {
+        showAlert('Nenhum aluno selecionado para importação.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('btnConfirmImport');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Importando...';
+
+    try {
+        const resp = await fetch('/api/alunos/importar/confirmar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                alunos: toImport.map(a => ({
+                    nome: a.nome,
+                    turma: a.turma,
+                    turno: a.turno
+                }))
+            })
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            throw new Error(data.error || 'Erro ao importar alunos');
+        }
+
+        showAlert(data.message, 'success');
+        importModal.hide();
+        loadStudents();
+    } catch (err) {
+        showAlert('Erro: ' + err.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Confirmar Importação';
+    }
+}
+
