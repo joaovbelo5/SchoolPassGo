@@ -4,9 +4,9 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./auth.db:/root/auth.db
-      - ./escola.db:/root/escola.db
-      - ./uploads:/root/uploads
+      - ./auth.db:/app/auth.db
+      - ./escola.db:/app/escola.db
+      - ./uploads:/app/uploads
     # (Optional) Environment variables for Telegram Bot
     # environment:
     #   - TELEGRAM_BOT_TOKEN=your_token_here
