@@ -497,7 +497,7 @@ async function executeBatchPrint() {
     const container = document.getElementById('batchPrintArea');
     container.innerHTML = '';
     
-    const templateNode = document.querySelector('#printArea .id-card');
+    const templateNode = document.querySelector('#idCardPrintArea .id-card');
     const now = new Date();
     const emissaoStr = now.toLocaleDateString('pt-BR');
     const validadeStr = `VALIDADE: 31/12/${now.getFullYear()}`;

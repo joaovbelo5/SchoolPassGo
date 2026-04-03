@@ -12,23 +12,98 @@
     <style>
         /* Print-only styles */
         .page-header-print { display: none; }
-        .table-print { display: none; margin-top: 20px;}
+        .table-print { display: none; }
         .signature-area { display: none; }
+        
         @media print {
-            body { background: white !important; margin: 0; padding: 0; }
+            body { 
+                background: white !important; 
+                margin: 0; 
+                padding: 0; 
+                color: black;
+            }
             .spg-nav, .no-print, .btn, #alertContainer { display: none !important; }
-            .page-header-print, .table-print, .signature-area { display: block; }
-            table { width: 100%; border-collapse: collapse; font-family: 'Times New Roman', serif; font-size: 13px; }
-            th, td { border: 1px solid black; padding: 4px; text-align: center; }
-            th { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .td-name { text-align: left; width: 250px; font-weight: bold;}
-            .bg-weekend { background-color: #e9ecef !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .header-title { font-size: 24px; font-weight: bold; font-family: 'Times New Roman', serif; margin-bottom: 2px; }
-            .header-subtitle { font-size: 20px; font-weight: bold; font-family: 'Times New Roman', serif; margin-top: 0; }
-            .header-right { text-align: right; font-weight: bold; font-family: 'Times New Roman', serif; font-size: 14px;}
-            .border-thick { border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 15px;}
-            .sign-line { border-top: 1px solid black; margin-top: 50px; width: 300px; padding-top: 5px;}
-            @page { size: landscape; margin: 10mm; }
+
+            /* Targeted style for this specific report area */
+            #chamadaPrintArea { 
+                display: block !important; 
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                visibility: visible !important;
+            }
+
+            .table-print { 
+                display: block !important; 
+                width: 100% !important; 
+                margin-top: 20px;
+            }
+            .signature-area { 
+                display: flex !important; 
+                justify-content: space-between;
+                margin-top: 40px;
+            }
+            
+            table { 
+                width: 100% !important; 
+                border-collapse: collapse !important; 
+                font-family: 'Times New Roman', serif; 
+                font-size: 11px;
+            }
+            th, td { 
+                border: 1px solid black !important; 
+                padding: 3px !important; 
+                text-align: center; 
+            }
+            th { 
+                background-color: #f0f0f0 !important; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+            }
+            .td-name { 
+                text-align: left !important; 
+                width: 30% !important; 
+                font-weight: bold;
+                padding-left: 8px !important;
+            }
+            .bg-weekend { 
+                background-color: #f2f2f2 !important; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+            }
+            
+            /* Header Specifics */
+            .print-header-flex {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                border-bottom: 2px solid black;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+                width: 100%;
+            }
+            .header-title { font-size: 26px; font-weight: bold; font-family: 'Times New Roman', serif; margin-bottom: 0; }
+            .header-subtitle { font-size: 18px; font-weight: bold; font-family: 'Times New Roman', serif; margin-top: 2px; }
+            .header-info { text-align: right; font-weight: bold; font-family: 'Times New Roman', serif; font-size: 15px; line-height: 1.4; }
+            
+            .sign-line { 
+                border-top: 1px solid black; 
+                margin-top: 50px; 
+                width: 35%; 
+                padding-top: 5px;
+                font-family: 'Times New Roman', serif;
+                font-size: 14px;
+            }
+            .print-footer-info {
+                font-family: 'Times New Roman', serif; 
+                font-size: 11px;
+                margin-top: 60px;
+            }
+
+            @page { 
+                size: landscape; 
+                margin: 1.5cm 1cm; 
+            }
         }
     </style>
 </head>
@@ -131,27 +206,29 @@
 </div>
 
 <!-- Output Canvas (Only visible on Print) -->
-<div class="container-fluid page-header-print" id="printArea">
-    <div class="d-flex justify-content-between align-items-end border-thick">
+<div class="page-header-print" id="chamadaPrintArea">
+    <div class="print-header-flex">
         <div>
             <h2 class="header-title text-uppercase" id="printEscola">NOME DA ESCOLA</h2>
             <h4 class="header-subtitle">Relatório Mensal de Frequência</h4>
         </div>
-        <div class="header-right">
+        <div class="header-info">
             <div>Turma: <span id="printTurma"></span></div>
             <div>Mês/Ano: <span id="printMesAno"></span></div>
         </div>
     </div>
+    
     <div class="table-print">
         <table id="printTable">
             <thead><tr id="printTableHeader"></tr></thead>
             <tbody id="printTableBody"></tbody>
         </table>
     </div>
-    <div class="signature-area d-flex justify-content-between">
-        <div class="sign-line text-center" style="font-family:'Times New Roman',serif">Assinatura do Professor(a)</div>
-        <div class="sign-line text-center" style="font-family:'Times New Roman',serif">Coordenação Pedagógica</div>
-        <div style="margin-top:55px;font-family:'Times New Roman',serif;font-size:13px">Impresso em: <span id="printDataHoje"></span></div>
+    
+    <div class="signature-area">
+        <div class="sign-line text-center">Assinatura do Professor(a)</div>
+        <div class="sign-line text-center">Coordenação Pedagógica</div>
+        <div class="print-footer-info">Impresso em: <span id="printDataHoje"></span></div>
     </div>
 </div>
 

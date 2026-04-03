@@ -13,37 +13,46 @@ import (
 )
 
 func main() {
+	log.Println("[DEBUG] Iniciando aplicação...")
+
 	// Ensure uploads directory exists
+	log.Println("[DEBUG] Verificando pasta de uploads...")
 	if err := os.MkdirAll("uploads", 0755); err != nil {
-		log.Fatal(err)
+		log.Fatalf("[ERRO CRÍTICO] Falha ao criar pasta uploads: %v", err)
 	}
 
 	// Initialize Authentication Database
+	log.Println("[DEBUG] Inicializando banco de autenticação (auth.db)...")
 	if err := auth.InitAuthDB("auth.db"); err != nil {
-		log.Fatalf("Could not initialize auth database: %v", err)
+		log.Fatalf("[ERRO CRÍTICO] Falha no auth.db: %v", err)
 	}
 	defer auth.AuthDB.Close()
 
 	// Initialize Main Database
+	log.Println("[DEBUG] Inicializando banco principal (escola.db)...")
 	err := database.InitDB("escola.db")
 	if err != nil {
-		log.Fatalf("Could not initialize database: %v", err)
+		log.Fatalf("[ERRO CRÍTICO] Falha no escola.db: %v", err)
 	}
 	defer database.DB.Close()
 
+	log.Println("[DEBUG] Verificando integridade dos dados e limpeza...")
 	// Start background cleanup
 	go func() {
 		if err := repository.CleanLixeiraOcorrencias(); err != nil {
-			log.Printf("Clean Lixeira Ocorrencias Error: %v", err)
+			log.Printf("[AVISO] Erro na limpeza da lixeira: %v", err)
 		}
 	}()
 
 	// Start Telegram Bot
+	log.Println("[DEBUG] Consultando configurações do sistema...")
 	config, err := repository.GetConfig()
 	if err == nil && config.TelegramBotToken != "" {
+		log.Println("[DEBUG] Iniciando Bot do Telegram...")
 		go telegram.StartBot(config.TelegramBotToken)
 	}
 
+	log.Println("[DEBUG] Configurando rotas do servidor...")
 	mux := http.NewServeMux()
 
 	// Auth Routes (public — checked by middleware whitelist)
