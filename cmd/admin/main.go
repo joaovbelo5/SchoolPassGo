@@ -235,7 +235,10 @@ func verifyPassword(encodedHash, password string) (bool, error) {
 	if len(parts) != 6 {
 		return false, errors.New("invalid hash format")
 	}
-	var p struct{ memory, iterations uint32; parallelism uint8 }
+	var p struct {
+		memory, iterations uint32
+		parallelism        uint8
+	}
 	fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &p.memory, &p.iterations, &p.parallelism)
 	salt, _ := base64.RawStdEncoding.DecodeString(parts[4])
 	decodedHash, _ := base64.RawStdEncoding.DecodeString(parts[5])

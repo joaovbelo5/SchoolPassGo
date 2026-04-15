@@ -67,7 +67,30 @@ Para rodar o **SchoolPassGo** localmente, você precisa ter:
 
 ---
 
-## 🚀 Instalação e Configuração (Passo a Passo)
+## ⚡ Execução Expresso (Pronto para o Uso Local)
+
+Se você já possuir os binários pré-compilados do sistema, **você não precisa instalar a linguagem Go nem banco de dados**. 
+
+Lembre-se: o arquivo executável deve ser colocado **junto** com as pastas `static/`, `templates/` e `uploads/` para que o visual funcione e as fotos sejam guardadas.
+
+### 🪟 No Windows
+Basta dar um duplo clique no arquivo `schoolpassgo.exe`. 
+Seu computador poderá emitir um alerta do firewall (pois é um servidor local), clique em "Permitir". Mantenha a janelinha preta aberta em segundo plano e acesse `http://localhost:8080` no seu navegador.
+
+### 🐧 No Linux (Ubuntu/Debian)
+1. Certifique-se de que o arquivo `schoolpassgo-linux-amd64` esteja no servidor (junto das 3 pastas principais).
+2. Abra o terminal na mesma pasta e conceda a permissão para executar:
+   ```bash
+   chmod +x schoolpassgo-linux-amd64
+   ```
+3. Em seguida, inicie o aplicativo:
+   ```bash
+   ./schoolpassgo-linux-amd64
+   ```
+
+---
+
+## 🚀 Instalação para Desenvolvedores (Build do Zero)
 
 Escolha o seu sistema operacional abaixo para seguir as instruções de instalação de forma simples e direta.
 
@@ -131,7 +154,7 @@ Escolha o seu sistema operacional abaixo para seguir as instruções de instala�
 
 ---
 
-Após executar `go run main.go`, o servidor será iniciado em `http://localhost:8080`.
+Após executar o arquivo buildado ou o `go run main.go`, o servidor será iniciado em `http://localhost:8080`.
 
 
 ---

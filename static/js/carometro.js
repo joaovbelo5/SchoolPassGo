@@ -7,8 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('printEscola').textContent = config.nome_instituicao;
         }
 
-        const alunos = await api('/api/alunos');
-        const turmas = [...new Set(alunos.map(a => a.turma))].filter(t => t).sort();
+        const turmas = await api('/api/turmas');
         
         const sel = document.getElementById('selectTurma');
         sel.innerHTML = '<option value="">Selecione uma turma...</option>';

@@ -57,7 +57,7 @@ func StartBot(token string) {
 		if update.Message.IsCommand() && update.Message.Command() == "start" {
 			msg := tgbotapi.NewMessage(chatID, "Bem vindo ao painel de alertas do *SchoolPassGo*!\n\nPara começarmos a avisá-lo das entradas do(s) aluno(s), clique no botão abaixo para compartilhar com a Inteligência o seu número:")
 			msg.ParseMode = "Markdown"
-			
+
 			btn := tgbotapi.KeyboardButton{
 				Text:           "Enviar meu número de telefone",
 				RequestContact: true,
@@ -79,19 +79,19 @@ func tryLinkPhone(phone string, chatID int64) error {
 	phoneClean := strings.ReplaceAll(phone, "+", "")
 	phoneClean = strings.ReplaceAll(phoneClean, "-", "")
 	phoneClean = strings.ReplaceAll(phoneClean, " ", "")
-	
+
 	chatStr := fmt.Sprintf("%d", chatID)
-		// Fallback mechanism: we actually query all students and match the normalized string
+	// Fallback mechanism: we actually query all students and match the normalized string
 	alunos, err := repository.GetAlunos()
 	if err != nil {
 		return err
 	}
-	
+
 	for _, a := range alunos {
 		dbPhone := strings.ReplaceAll(a.TelefoneResponsavel, "+", "")
 		dbPhone = strings.ReplaceAll(dbPhone, "-", "")
 		dbPhone = strings.ReplaceAll(dbPhone, " ", "")
-		
+
 		if dbPhone != "" && dbPhone == phoneClean {
 			_, err := repository.UpdateTelegramChatID(a.TelefoneResponsavel, chatStr)
 			if err == nil {
@@ -99,7 +99,7 @@ func tryLinkPhone(phone string, chatID int64) error {
 			}
 		}
 	}
-	
+
 	return fmt.Errorf("telefone not found")
 }
 
@@ -107,7 +107,7 @@ func SendMessage(chatIdStr, text string) {
 	if Bot == nil || chatIdStr == "" {
 		return
 	}
-	
+
 	var chatID int64
 	_, err := fmt.Sscanf(chatIdStr, "%d", &chatID)
 	if err != nil {

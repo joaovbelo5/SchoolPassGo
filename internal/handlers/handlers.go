@@ -3,14 +3,12 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
-	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -94,6 +92,18 @@ func UpdateConfigHandler(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, http.StatusOK, map[string]string{"message": "Configurações atualizadas"})
 }
 
+func GetTurmasHandler(w http.ResponseWriter, r *http.Request) {
+	turmas, err := repository.GetTurmas()
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, "Erro ao listar turmas")
+		return
+	}
+	if turmas == nil {
+		turmas = []string{}
+	}
+	sendJSON(w, http.StatusOK, turmas)
+}
+
 func GetAlunosHandler(w http.ResponseWriter, r *http.Request) {
 	alunos, err := repository.GetAlunos()
 	if err != nil {
@@ -106,13 +116,43 @@ func GetAlunosHandler(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, http.StatusOK, alunos)
 }
 
-func generateBarcode() string {
-	var sb strings.Builder
-	for i := 0; i < 9; i++ {
-		n, _ := rand.Int(rand.Reader, big.NewInt(10))
-		sb.WriteString(n.String())
+func GetAlunoFotoHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "ID inválido", http.StatusBadRequest)
+		return
 	}
-	return sb.String()
+
+	foto, err := repository.GetAlunoFoto(id)
+	if err != nil || foto == "" || len(foto) < 10 {
+		http.Error(w, "Sem foto", http.StatusNotFound)
+		return
+	}
+
+	parts := strings.SplitN(foto, ",", 2)
+	var rawData string
+	mimeType := "image/jpeg"
+
+	if len(parts) == 2 {
+		rawData = parts[1]
+		if strings.HasPrefix(parts[0], "data:") && strings.HasSuffix(parts[0], ";base64") {
+			mimeType = strings.TrimSuffix(strings.TrimPrefix(parts[0], "data:"), ";base64")
+		}
+	} else {
+		rawData = foto
+	}
+
+	data, err := base64.StdEncoding.DecodeString(rawData)
+	if err != nil {
+		http.Error(w, "Erro ao decodificar", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Cache-Control", "public, max-age=86400") // Cache por 1 dia no front
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 func CreateAlunoHandler(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +163,8 @@ func CreateAlunoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if a.CodigoBarras == "" {
-		a.CodigoBarras = generateBarcode()
+		bg := repository.NewBarcodeGenerator()
+		a.CodigoBarras = bg.Generate(a.Turma, a.Turno)
 	}
 
 	// O sistema de Banco de Dados agora armazena explicitamente o Base64 na coluna Foto (SQLite Blob-String)
@@ -154,11 +195,17 @@ func UpdateAlunoHandler(w http.ResponseWriter, r *http.Request) {
 	a.ID = id
 
 	if a.CodigoBarras == "" {
-		a.CodigoBarras = generateBarcode()
+		bg := repository.NewBarcodeGenerator()
+		a.CodigoBarras = bg.Generate(a.Turma, a.Turno)
 	}
 
-	// Handle Base64 Photo -> Directly passed to SQLite. (No logic needed anymore)
-
+	if a.Foto == "" {
+		// Mantém a foto atual
+		velho, _ := repository.GetAlunoFoto(id)
+		a.Foto = velho
+	} else if a.Foto == "__EXCLUIR__" {
+		a.Foto = ""
+	}
 	if err := repository.UpdateAluno(a); err != nil {
 		sendError(w, http.StatusInternalServerError, "Erro ao atualizar aluno: "+err.Error())
 		return
@@ -182,7 +229,7 @@ func DeleteAlunoHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetAcessosHandler(w http.ResponseWriter, r *http.Request) {
 	dataFiltro := r.URL.Query().Get("data")
-	
+
 	var acessos []models.Acesso
 	var err error
 
@@ -229,8 +276,8 @@ func TotemRegistroHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err == nil && lastAcesso.ID > 0 {
 		now := time.Now()
-		isSameDay := lastAcesso.DataHora.Year() == now.Year() && 
-					 lastAcesso.DataHora.YearDay() == now.YearDay()
+		isSameDay := lastAcesso.DataHora.Year() == now.Year() &&
+			lastAcesso.DataHora.YearDay() == now.YearDay()
 
 		elapsed := time.Since(lastAcesso.DataHora)
 		if elapsed.Minutes() < float64(delay) {
@@ -251,7 +298,7 @@ func TotemRegistroHandler(w http.ResponseWriter, r *http.Request) {
 
 	if aluno.TelegramChatID != "" {
 		horaFormatada := time.Now().Format("15:04")
-		texto := "*"+aluno.Nome+"* realizou a *"+strings.ToUpper(tipoNovo)+"* às *"+horaFormatada+"*."
+		texto := "*" + aluno.Nome + "* realizou a *" + strings.ToUpper(tipoNovo) + "* às *" + horaFormatada + "*."
 		telegram.SendMessage(aluno.TelegramChatID, texto)
 	}
 
@@ -269,7 +316,7 @@ func GetAcessosAlunoHandler(w http.ResponseWriter, r *http.Request) {
 		sendError(w, http.StatusBadRequest, "ID inválido")
 		return
 	}
-	
+
 	acessos, err := repository.GetAcessosByAluno(id)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Erro ao buscar histórico do aluno")
@@ -451,7 +498,7 @@ func UpdateOcorrenciaHandler(w http.ResponseWriter, r *http.Request) {
 		Classificacao: velha.Classificacao,
 		Descricao:     velha.Descricao,
 	})
-	
+
 	bytesHist, _ := json.Marshal(hist)
 
 	velha.Classificacao = req.Classificacao
@@ -482,7 +529,7 @@ func DeleteOcorrenciaHandler(w http.ResponseWriter, r *http.Request) {
 		sendError(w, http.StatusBadRequest, "ID inválido")
 		return
 	}
-	
+
 	err = repository.SoftDeleteOcorrencia(id)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Erro ao mover para lixeira")
@@ -611,11 +658,15 @@ func GetArquivoDossieHandler(w http.ResponseWriter, r *http.Request) {
 		ocRows.Close()
 	}
 
-	if acessos == nil { acessos = []models.Acesso{} }
-	if ocorrencias == nil { ocorrencias = []models.Ocorrencia{} }
+	if acessos == nil {
+		acessos = []models.Acesso{}
+	}
+	if ocorrencias == nil {
+		ocorrencias = []models.Ocorrencia{}
+	}
 
 	sendJSON(w, http.StatusOK, map[string]interface{}{
-		"acessos": acessos,
+		"acessos":     acessos,
 		"ocorrencias": ocorrencias,
 	})
 }
@@ -944,7 +995,7 @@ func ImportAlunosHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, http.StatusOK, map[string]interface{}{
-		"alunos":  result,
+		"alunos": result,
 		"colunas": map[string]interface{}{
 			"nome":  colNome >= 0,
 			"turma": colTurma >= 0,
@@ -978,17 +1029,22 @@ func ConfirmImportAlunosHandler(w http.ResponseWriter, r *http.Request) {
 	importados := 0
 	erros := 0
 
+	bg := repository.NewBarcodeGenerator()
+
 	for _, a := range req.Alunos {
 		if strings.TrimSpace(a.Nome) == "" {
 			erros++
 			continue
 		}
 
+		turmaLimpa := strings.TrimSpace(a.Turma)
+		turnoLimpo := strings.TrimSpace(a.Turno)
+
 		aluno := models.Aluno{
-			Nome:  strings.TrimSpace(a.Nome),
-			Turma: strings.TrimSpace(a.Turma),
-			Turno: strings.TrimSpace(a.Turno),
-			CodigoBarras: generateBarcode(),
+			Nome:         strings.TrimSpace(a.Nome),
+			Turma:        turmaLimpa,
+			Turno:        turnoLimpo,
+			CodigoBarras: bg.Generate(turmaLimpa, turnoLimpo),
 		}
 
 		if _, err := repository.CreateAluno(aluno); err != nil {

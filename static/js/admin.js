@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btnClearPhoto').addEventListener('click', () => {
         document.getElementById('alunoFotoFile').value = '';
-        document.getElementById('alunoFotoBase64').value = '';
+        document.getElementById('alunoFotoBase64').value = '__EXCLUIR__';
         togglePreview(false);
     });
 
@@ -225,9 +225,10 @@ function renderStudents(list, originalTotal = 0) {
     list.forEach(aluno => {
         const tr = document.createElement('tr');
         const defaultPhoto = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2240%22%20height%3D%2240%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%20fill%3D%22%23ccc%22%2F%3E%3C%2Fsvg%3E';
+        const fotoUrl = aluno.foto || defaultPhoto;
         
         tr.innerHTML = `
-            <td class="ps-4"><img src="${aluno.foto || defaultPhoto}" class="rounded-circle object-fit-cover shadow-sm border" width="45" height="45"></td>
+            <td class="ps-4"><img src="${fotoUrl}" onerror="this.src='${defaultPhoto}'" class="rounded-circle object-fit-cover shadow-sm border" width="45" height="45"></td>
             <td class="fw-semibold">${aluno.nome}</td>
             <td>${aluno.turma}</td>
             <td><span class="badge bg-light text-dark border">${aluno.turno}</span></td>
@@ -251,9 +252,14 @@ function renderStudents(list, originalTotal = 0) {
     }
 }
 
+// Present students state
+let estudantesPresentesMap = {};
+
 function renderAcessos(list) {
     const tbody = document.getElementById('acessosList');
     tbody.innerHTML = '';
+
+    processAcessosStats(list);
     
     if (list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">Nenhum acesso registrado.</td></tr>`;
@@ -271,6 +277,138 @@ function renderAcessos(list) {
         `;
         tbody.appendChild(tr);
     });
+}
+
+function processAcessosStats(list) {
+    const btnShow = document.getElementById('btnShowPresentes');
+    const container = document.getElementById('acessosTurnoStats');
+    if (!container) return;
+
+    if (list.length === 0) {
+        container.innerHTML = '';
+        if (btnShow) btnShow.classList.add('d-none');
+        return;
+    }
+
+    // Calcular stats
+    let statsPorTurno = {};
+    let trackingAlunos = {}; // aluno_id => { nome, turma, turno, entradas, saidas }
+
+    list.forEach(a => {
+        const t = a.aluno_turno || 'Desconhecido';
+        if (!statsPorTurno[t]) statsPorTurno[t] = { entradas: 0, saidas: 0 };
+        
+        if (a.tipo === 'entrada') statsPorTurno[t].entradas++;
+        if (a.tipo === 'saida') statsPorTurno[t].saidas++;
+
+        if (!trackingAlunos[a.aluno_id]) {
+            trackingAlunos[a.aluno_id] = {
+                id: a.aluno_id,
+                nome: a.aluno_nome,
+                turma: a.aluno_turma || 'Sem Turma',
+                turno: t,
+                entradas: 0,
+                saidas: 0
+            };
+        }
+        if (a.tipo === 'entrada') trackingAlunos[a.aluno_id].entradas++;
+        if (a.tipo === 'saida') trackingAlunos[a.aluno_id].saidas++;
+    });
+
+    // Reset list
+    estudantesPresentesMap = {};
+    let qtdPresentes = 0;
+
+    Object.values(trackingAlunos).forEach(al => {
+        // Aluno presente: tem ao menos 1 entrada e 0 saídas.
+        if (al.entradas > 0 && al.saidas === 0) {
+            qtdPresentes++;
+            if (!estudantesPresentesMap[al.turma]) estudantesPresentesMap[al.turma] = [];
+            estudantesPresentesMap[al.turma].push(al);
+        }
+    });
+
+    // Mostrar os cartões por turno
+    const coresTurno = {
+        'Manhã': 'border-left: 3px solid #facc15',
+        'Tarde': 'border-left: 3px solid #fb923c',
+        'Noite': 'border-left: 3px solid #3b82f6',
+        'Integral': 'border-left: 3px solid #8b5cf6'
+    };
+
+    let html = '';
+    Object.keys(statsPorTurno).sort().forEach(turno => {
+        const st = statsPorTurno[turno];
+        const cxStyle = coresTurno[turno] || 'border-left: 3px solid #94a3b8';
+        
+        html += `
+            <div class="col-auto mb-2">
+                <div class="px-3 py-2 bg-white rounded-3 shadow-sm d-flex align-items-center gap-3" style="${cxStyle}; border:1px solid var(--gray-200)">
+                    <div><small class="text-muted fw-bold text-uppercase" style="font-size:0.7rem">${turno}</small></div>
+                    <div class="d-flex gap-3">
+                        <div class="text-success fw-bold" style="font-size:0.9rem"><i class="bi bi-arrow-down-circle-fill me-1"></i> ${st.entradas} Entradas</div>
+                        <div class="text-primary fw-bold" style="font-size:0.9rem"><i class="bi bi-arrow-up-circle-fill me-1"></i> ${st.saidas} Saídas</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+
+    // Controlar botão
+    if (btnShow) {
+        if (qtdPresentes > 0) {
+            btnShow.classList.remove('d-none');
+            btnShow.innerHTML = `<i class="bi bi-person-check-fill me-1 text-success"></i> ${qtdPresentes} Alunos Presentes`;
+        } else {
+            btnShow.classList.add('d-none');
+        }
+    }
+}
+
+let alunosPresentesModal = null;
+
+function openAlunosPresentesModal() {
+    if (!alunosPresentesModal) {
+        alunosPresentesModal = new bootstrap.Modal(document.getElementById('alunosPresentesModal'));
+    }
+
+    const body = document.getElementById('alunosPresentesBody');
+    body.innerHTML = '';
+
+    const turmas = Object.keys(estudantesPresentesMap).sort();
+
+    if (turmas.length === 0) {
+        body.innerHTML = '<p class="text-center text-muted py-3">Nenhum aluno identificado.</p>';
+        alunosPresentesModal.show();
+        return;
+    }
+
+    let html = '';
+    turmas.forEach(turma => {
+        const alunos = estudantesPresentesMap[turma].sort((a, b) => a.nome.localeCompare(b.nome));
+        html += `
+            <div class="mb-4">
+                <h6 class="border-bottom pb-2 fw-bold text-dark"><i class="bi bi-diagram-3-fill me-2 text-muted"></i>Turma: ${turma} <span class="badge bg-secondary ms-2">${alunos.length} alunos</span></h6>
+                <div class="row g-2 mt-2">
+        `;
+        
+        alunos.forEach(al => {
+            html += `
+                <div class="col-md-6 col-lg-4">
+                    <div class="p-2 border rounded bg-white shadow-sm d-flex align-items-center gap-2">
+                        <i class="bi bi-person-circle fs-3 text-secondary"></i>
+                        <span class="fw-semibold text-truncate" style="font-size:0.85rem">${al.nome}</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div></div>`;
+    });
+
+    body.innerHTML = html;
+    alunosPresentesModal.show();
 }
 
 async function saveStudent() {
@@ -321,7 +459,7 @@ function editStudent(id) {
     document.getElementById('alunoCodigo').value = aluno.codigo_barras;
     document.getElementById('alunoTelefone').value = aluno.telefone_responsavel || '';
     
-    document.getElementById('alunoFotoBase64').value = aluno.foto || '';
+    document.getElementById('alunoFotoBase64').value = '';
     if (aluno.foto) {
         document.getElementById('photoPreview').src = aluno.foto;
         togglePreview(true);
@@ -392,7 +530,8 @@ async function showBarcode(id) {
         lineColor: "#000",
         width: 1.5,
         height: 50,
-        displayValue: false,
+        displayValue: true,
+        fontSize: 12,
         margin: 0
     });
     
@@ -481,7 +620,7 @@ async function executeBatchPrint() {
     }
     
     if (onlyWithPhotos) {
-        targetStudents = targetStudents.filter(s => s.foto && s.foto.length > 100);
+        targetStudents = targetStudents.filter(s => s.foto && s.foto.length > 5);
     }
 
     if (targetStudents.length === 0) {
@@ -504,13 +643,32 @@ async function executeBatchPrint() {
 
     const btn = document.querySelector('#batchPrintModal .btn-spg-primary');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Gerando...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Renderizando...';
     btn.disabled = true;
+
+    const controlsArea = document.getElementById('batchPrintControlsArea');
+    const progressArea = document.getElementById('batchPrintProgressArea');
+    const errorMsg = document.getElementById('batchPrintErrorMsg');
+    const progressBar = document.getElementById('batchPrintProgressBar');
+    const progressText = document.getElementById('batchPrintProgressCount');
+
+    // UI Feedback Start
+    if (controlsArea) controlsArea.classList.add('d-none');
+    if (progressArea) progressArea.classList.remove('d-none');
+    if (errorMsg) errorMsg.classList.add('d-none');
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressText) progressText.innerText = `0 / ${targetStudents.length}`;
+
+    let loadedCount = 0;
+    let errorCount = 0;
+    let promises = [];
 
     setTimeout(() => {
         targetStudents.forEach(aluno => {
             const card = templateNode.cloneNode(true);
-            card.querySelector('#cardFoto').src = aluno.foto || 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22130%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%20fill%3D%22%23ccc%22%2F%3E%3C%2Fsvg%3E';
+            const imgEl = card.querySelector('#cardFoto');
+            
+            imgEl.src = aluno.foto || 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22130%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%20fill%3D%22%23ccc%22%2F%3E%3C%2Fsvg%3E';
             card.querySelector('#cardAlunoNome').textContent = aluno.nome;
             card.querySelector('#cardTurma').textContent = aluno.turma || '-';
             card.querySelector('#cardTurno').textContent = aluno.turno || '-';
@@ -543,24 +701,50 @@ async function executeBatchPrint() {
                 lineColor: "#000",
                 width: 1.5,
                 height: 50,
-                displayValue: false,
+                displayValue: true,
+                fontSize: 12,
                 margin: 0
             });
+
+            // Track image load
+            const p = new Promise(resolve => {
+                const checkDone = (success) => {
+                    if (!success) errorCount++;
+                    loadedCount++;
+                    if (progressBar) progressBar.style.width = Math.round((loadedCount / targetStudents.length) * 100) + '%';
+                    if (progressText) progressText.innerText = `${loadedCount} / ${targetStudents.length}`;
+                    resolve();
+                };
+                if (imgEl.complete) {
+                    checkDone(imgEl.naturalWidth !== 0);
+                } else {
+                    imgEl.onload = () => checkDone(true);
+                    imgEl.onerror = () => checkDone(false);
+                }
+            });
+            promises.push(p);
         });
 
-        // Use requestAnimationFrame to ensure DOM is ready
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        Promise.all(promises).then(() => {
+            if (errorCount > 0) {
+                if (errorMsg) errorMsg.classList.remove('d-none');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-                batchPrintModal.hide();
-                window.print();
-                // Clear after print dialog is closed (usually wait a bit)
-                setTimeout(() => { container.innerHTML = ''; }, 5000);
-            });
+            } else {
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    if (controlsArea) controlsArea.classList.remove('d-none');
+                    if (progressArea) progressArea.classList.add('d-none');
+                    
+                    batchPrintModal.hide();
+                    window.print();
+                    setTimeout(() => { container.innerHTML = ''; }, 5000);
+                }, 400); // UI breathing room
+            }
         });
         
-    }, 300);
+    }, 150);
 }
 
 // --- OCORRENCIAS ---

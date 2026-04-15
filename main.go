@@ -71,19 +71,21 @@ func main() {
 	mux.HandleFunc("GET /api/config", handlers.GetConfigHandler)
 	mux.HandleFunc("PUT /api/config", handlers.UpdateConfigHandler)
 
+	mux.HandleFunc("GET /api/turmas", handlers.GetTurmasHandler)
 	mux.HandleFunc("GET /api/alunos", handlers.GetAlunosHandler)
+	mux.HandleFunc("GET /api/alunos/{id}/foto", handlers.GetAlunoFotoHandler)
 	mux.HandleFunc("POST /api/alunos", handlers.CreateAlunoHandler)
 	mux.HandleFunc("PUT /api/alunos/{id}", handlers.UpdateAlunoHandler)
 	mux.HandleFunc("DELETE /api/alunos/{id}", handlers.DeleteAlunoHandler)
 	mux.HandleFunc("GET /api/alunos/{id}/acessos", handlers.GetAcessosAlunoHandler)
 	mux.HandleFunc("POST /api/alunos/importar", handlers.ImportAlunosHandler)
 	mux.HandleFunc("POST /api/alunos/importar/confirmar", handlers.ConfirmImportAlunosHandler)
-	
+
 	mux.HandleFunc("GET /api/alunos/{id}/ocorrencias", handlers.GetOcorrenciasHandler)
 	mux.HandleFunc("POST /api/alunos/{id}/ocorrencias", handlers.CreateOcorrenciaHandler)
 	mux.HandleFunc("PUT /api/ocorrencias/{id}", handlers.UpdateOcorrenciaHandler)
 	mux.HandleFunc("DELETE /api/ocorrencias/{id}", handlers.DeleteOcorrenciaHandler)
-	
+
 	mux.HandleFunc("POST /api/arquivo/gerar", handlers.GerarArquivoHandler)
 	mux.HandleFunc("GET /api/arquivos/list", handlers.ListArquivosHandler)
 	mux.HandleFunc("GET /api/arquivos/{ano}/alunos", handlers.GetArquivoAlunosHandler)
@@ -100,7 +102,7 @@ func main() {
 	// Static Files - serve the frontend
 	fileServer := http.FileServer(http.Dir("./static"))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
-	
+
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
 
 	// Frontend Route Handling (Templates)

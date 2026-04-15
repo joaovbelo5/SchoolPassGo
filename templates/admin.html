@@ -83,8 +83,8 @@
         </div>
 
         <!-- Filters — Acessos view -->
-        <div class="spg-card-header d-none" id="acessosFilterSection">
-            <div class="d-flex gap-2 align-items-center flex-wrap">
+        <div class="spg-card-header d-none flex-column align-items-start gap-3" id="acessosFilterSection">
+            <div class="d-flex gap-2 align-items-center flex-wrap w-100">
                 <div class="d-flex gap-1 me-2">
                     <button class="btn-spg-ghost" onclick="showAlunosView()">
                         <i class="bi bi-people-fill"></i> Alunos
@@ -93,10 +93,18 @@
                         <i class="bi bi-clock-history"></i> Histórico
                     </button>
                 </div>
-                <div class="position-relative">
+                <div class="position-relative me-auto">
                     <i class="bi bi-calendar-date" style="position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--gray-400)"></i>
                     <input type="date" class="spg-input" id="filterDataAcessos" onchange="loadAcessos()" style="padding-left:2.2rem;max-width:180px">
                 </div>
+                <button class="btn-spg-outline d-none" id="btnShowPresentes" onclick="openAlunosPresentesModal()">
+                    <i class="bi bi-person-check-fill me-1 text-success"></i> Ver Alunos Presentes
+                </button>
+            </div>
+
+            <!-- Turno Counters Area -->
+            <div class="row g-2 w-100" id="acessosTurnoStats">
+                <!-- Injected via JS -->
             </div>
         </div>
 
@@ -226,51 +234,71 @@
                 <h5 class="modal-title fw-bold">Carteirinha Virtual</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 d-flex justify-content-center" style="background:var(--gray-50)" id="idCardPrintArea">
+            <div class="modal-body p-4 d-flex justify-content-center" style="background:#fff" id="idCardPrintArea">
                 <div class="id-card bg-white shadow-sm">
                     <!-- Frente -->
                     <div class="id-card-side id-card-front">
-                        <div class="top-green-stripe"></div>
-                        <div class="d-flex align-items-center justify-content-center w-100 mb-2 mt-2" style="height:40px;padding:0 5px">
-                            <img id="cardLogo" src="" class="me-2 object-fit-contain d-none" style="max-height:35px;max-width:45px">
-                            <div id="cardEscolaNome" class="fw-bolder lh-sm text-start" style="font-size:11px;color:#0f5132">NOME DA ESCOLA</div>
+                        <!-- Top Header Logo & Name -->
+                        <div class="d-flex align-items-center justify-content-center w-100 mt-2 px-1 gap-2" style="min-height:50px;">
+                            <img id="cardLogo" src="" class="object-fit-contain d-none" style="max-height:45px;max-width:55px">
+                            <div id="cardEscolaNome" class="text-center fw-bolder lh-sm text-uppercase" style="font-size:12px;color:var(--green-800);letter-spacing:0.3px;">NOME DA ESCOLA</div>
                         </div>
-                        <div class="bg-light border rounded mb-1 overflow-hidden mx-auto" style="width:80px;height:105px">
+                        
+                        <!-- Photo container -->
+                        <div class="card-photo-container mt-2 mx-auto">
                             <img id="cardFoto" src="" class="w-100 h-100 object-fit-cover">
                         </div>
-                        <div class="w-100 px-2 text-truncate fw-bolder text-uppercase" id="cardAlunoNome" style="font-size:11px;color:#002c4b;line-height:1.1">NOME ALUNO</div>
-                        <div class="d-flex justify-content-center gap-2 w-100 mt-1">
-                            <div class="bg-light border rounded px-1 py-1 text-center" style="width:50px">
-                                <div style="font-size:7px;color:#6c757d;font-weight:bold">TURMA</div>
-                                <div id="cardTurma" style="font-size:9px;color:#0d6efd;font-weight:bold">---</div>
+                        
+                        <!-- Student Name -->
+                        <div class="w-100 px-1 mt-1 text-center text-truncate fw-bolder text-uppercase" id="cardAlunoNome" style="font-size:13px;color:var(--gray-900);line-height:1">NOME ALUNO</div>
+                        
+                        <!-- Info Blocks (Empurrados para o fundo do cartão com mt-auto) -->
+                        <div class="w-100 px-2 mt-auto d-flex flex-column" style="gap:3px;">
+                            <div class="text-center rounded" style="background:var(--gray-100); padding:2px 0; line-height:1.1;">
+                                <div class="text-uppercase fw-bold text-muted" style="font-size:7px;letter-spacing:0.5px;">TURMA</div>
+                                <div id="cardTurma" class="fw-bolder" style="font-size:10px;color:var(--green-700);">---</div>
                             </div>
-                            <div class="bg-light border rounded px-1 py-1 text-center" style="width:50px">
-                                <div style="font-size:7px;color:#6c757d;font-weight:bold">TURNO</div>
-                                <div id="cardTurno" style="font-size:9px;color:#198754;font-weight:bold">---</div>
+                            <div class="text-center rounded" style="background:var(--gray-100); padding:2px 0; line-height:1.1;">
+                                <div class="text-uppercase fw-bold text-muted" style="font-size:7px;letter-spacing:0.5px;">TURNO</div>
+                                <div id="cardTurno" class="fw-bolder" style="font-size:10px;color:var(--green-700);">---</div>
+                            </div>
+                            <div class="text-center rounded" style="background:var(--gray-100); padding:2px 0; line-height:1.1;">
+                                <div class="text-uppercase fw-bold text-muted" style="font-size:7px;letter-spacing:0.5px;">CÓDIGO</div>
+                                <div id="cardMatriculaText" class="fw-bold" style="font-size:10px;color:var(--green-700);letter-spacing:0.5px;">---</div>
                             </div>
                         </div>
-                        <div class="bg-light border rounded w-100 mt-1 py-1 fw-bold text-secondary" id="cardMatriculaText" style="font-size:11px;letter-spacing:1px">123456789</div>
-                        <div class="bg-success text-white px-2 py-1 rounded-pill fw-bold mt-1" style="font-size:9px" id="cardValidade">VALIDADE: 31/12/2026</div>
+                        
+                        <!-- Validade Footer -->
+                        <div class="w-100 px-2 mt-1 mb-1">
+                            <div class="text-center rounded-pill fw-bolder text-white" style="background:var(--green-800);font-size:9px;letter-spacing:0.5px; padding:2px 0;" id="cardValidade">VALIDADE: 31/12/2026</div>
+                        </div>
                     </div>
+                    
                     <!-- Verso -->
                     <div class="id-card-side id-card-back">
-                        <div class="top-green-stripe"></div>
-                        <div class="fw-bold mt-2 mb-1 px-2" id="cardBackEscolaNome" style="color:#0f5132;font-size:11px;line-height:1.2">ESCOLA</div>
-                        <div class="text-secondary mb-3 w-100 px-2" style="font-size:9px;line-height:1.2">
+                        <!-- Top Header Name -->
+                        <div class="w-100 mt-3 text-center text-uppercase fw-bolder px-2 lh-sm" id="cardBackEscolaNome" style="font-size:13px;color:var(--green-700);">ESCOLA</div>
+                        
+                        <!-- Address / Phone -->
+                        <div class="w-100 text-center text-secondary mb-2 mt-1 px-2" style="font-size:10px;line-height:1.2">
                             <div id="cardEndereco" class="text-truncate">—</div>
                             <div id="cardTelefone">—</div>
                         </div>
-                        <div class="border rounded px-1 py-1 bg-white w-100 d-flex flex-column align-items-center justify-content-center" style="min-height:80px">
+                        
+                        <!-- Signature Area -->
+                        <div class="w-100 position-relative d-flex justify-content-center align-items-end mt-4 mb-3" style="height:65px;">
+                            <img id="cardAssinatura" src="" class="object-fit-contain d-none" style="position:absolute;bottom:10px;height:77px;width:165px;z-index:1;">
+                            <div class="position-absolute" style="bottom:12px;border-bottom:1px solid var(--gray-400);width:85%;"></div>
+                            <div class="text-center position-absolute w-100 text-uppercase" style="bottom:-4px;font-size:9px;color:var(--gray-500);font-weight:600;">DIREÇÃO / SECRETARIA</div>
+                        </div>
+                        
+                        <!-- Barcode Area -->
+                        <div class="w-100 mt-auto d-flex flex-column align-items-center mb-1 bg-white pt-2 rounded">
                             <svg id="barcodeCanvas"></svg>
                         </div>
-                        <div class="mt-auto w-100 pb-1">
-                            <div class="d-flex justify-content-center position-relative mb-2" style="height:50px">
-                                <img id="cardAssinatura" src="" class="object-fit-contain d-none" style="height:65px;width:130px;position:absolute;bottom:0;z-index:1">
-                                <div class="w-75 border-bottom border-dark position-absolute" style="bottom:8px"></div>
-                            </div>
-                            <div style="font-size:8px;color:#002c4b;font-weight:bold">DIREÇÃO / SECRETARIA</div>
-                            <div style="font-size:8px;color:#6c757d" id="cardEmissao">Emitido em: —</div>
-                        </div>
+                        
+                        <!-- Emissao -->
+                        <div class="w-100 text-center text-secondary pb-2" style="font-size:9px;" id="cardEmissao">Emitido em: —</div>
                     </div>
                 </div>
             </div>
@@ -313,15 +341,30 @@
                 <h5 class="modal-title fw-bold">Impressão em Lote</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
-                <p class="text-muted small">Gera folha A4 com múltiplas carteirinhas. Pode levar alguns segundos.</p>
-                <div class="spg-form-group">
-                    <label class="spg-label">Filtrar por Turma</label>
-                    <select id="batchPrintTurma" class="spg-select"></select>
+            <div class="modal-body p-4" id="batchPrintModalBody">
+                <div id="batchPrintControlsArea">
+                    <p class="text-muted small">Gera folha A4 com múltiplas carteirinhas. Pode levar alguns segundos.</p>
+                    <div class="spg-form-group">
+                        <label class="spg-label">Filtrar por Turma</label>
+                        <select id="batchPrintTurma" class="spg-select"></select>
+                    </div>
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="batchPrintFotoOnly" checked>
+                        <label class="form-check-label text-muted" for="batchPrintFotoOnly">Apenas alunos com foto (recomendado)</label>
+                    </div>
                 </div>
-                <div class="form-check form-switch mt-3">
-                    <input class="form-check-input" type="checkbox" role="switch" id="batchPrintFotoOnly" checked>
-                    <label class="form-check-label text-muted" for="batchPrintFotoOnly">Apenas alunos com foto (recomendado)</label>
+                <!-- Progress Area -->
+                <div id="batchPrintProgressArea" class="mt-2 d-none">
+                    <div class="d-flex justify-content-between mb-1">
+                        <small class="fw-bold" id="batchPrintProgressText">Preparando imagens...</small>
+                        <small class="text-muted" id="batchPrintProgressCount">0/0</small>
+                    </div>
+                    <div class="progress mb-2" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" id="batchPrintProgressBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div id="batchPrintErrorMsg" class="text-danger mt-1 fw-bold d-none text-center" style="font-size: 0.85rem;">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Ocorreu um erro ao carregar algumas imagens. Por favor, tente novamente.
+                    </div>
                 </div>
             </div>
             <div class="modal-footer border-top-0">
@@ -491,6 +534,24 @@
                 <button type="button" class="btn-spg-primary d-none" id="btnConfirmImport" onclick="confirmImport()">
                     <i class="bi bi-check-lg me-1"></i> Confirmar Importação
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alunos Presentes Modal -->
+<div class="modal fade" id="alunosPresentesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-success"><i class="bi bi-person-check-fill me-2"></i>Alunos Presentes no Dia</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 pt-3" id="alunosPresentesBody" style="background:var(--gray-50)">
+                <!-- Content injected via JS -->
+            </div>
+            <div class="modal-footer border-top-0" style="background:#fff">
+                <button type="button" class="btn-spg-ghost" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>

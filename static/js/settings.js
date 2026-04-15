@@ -215,25 +215,63 @@ async function confirmarRestore() {
     btn.style.pointerEvents = 'none';
     btn.style.opacity = '0.5';
 
-    try {
-        const formData = new FormData();
-        formData.append('backup', f);
+    const progContainer = document.getElementById('restoreProgressContainer');
+    const progBar = document.getElementById('restoreProgressBar');
+    const progLabel = document.getElementById('restoreProgressLabel');
+    progContainer.classList.remove('d-none');
+    progBar.style.width = '0%';
+    progLabel.textContent = 'Enviando arquivo... 0%';
+    progBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-danger';
 
-        const res = await fetch('/api/restaurar', {
-            method: 'POST',
-            body: formData
-        });
+    const formData = new FormData();
+    formData.append('backup', f);
 
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.error || `Erro HTTP ${res.status}`);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/restaurar', true);
 
-        alert('✅ Sistema restaurado com sucesso!\nA página será recarregada.');
-        window.location.reload();
-    } catch (err) {
-        alert('❌ Erro ao restaurar: ' + err.message);
+    xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            progBar.style.width = pct + '%';
+            progLabel.textContent = 'Enviando arquivo... ' + pct + '%';
+            if (pct >= 100) {
+                progLabel.textContent = 'Restaurando banco de dados no servidor, aguarde...';
+            }
+        }
+    };
+
+    xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            progLabel.textContent = 'Concluído!';
+            progBar.classList.remove('progress-bar-striped');
+            progBar.classList.add('bg-success');
+            progBar.classList.remove('bg-danger');
+            
+            setTimeout(() => {
+                alert('✅ Sistema restaurado com sucesso!\\nA página será recarregada.');
+                window.location.reload();
+            }, 300);
+        } else {
+            let errorMsg = xhr.statusText;
+            try { errorMsg = JSON.parse(xhr.responseText).error || errorMsg; } catch(e){}
+            alert('❌ Erro ao restaurar: ' + errorMsg);
+            resetUI();
+        }
+    };
+
+    xhr.onerror = () => {
+        alert('❌ Erro na conexão.');
+        resetUI();
+    };
+
+    function resetUI() {
         btn.style.pointerEvents = 'auto';
         btn.style.opacity = '1';
+        progContainer.classList.add('d-none');
+        inputFile.value = '';
     }
+
+    xhr.send(formData);
 }
 
 // --- USER MANAGEMENT ---

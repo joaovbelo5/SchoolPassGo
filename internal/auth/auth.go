@@ -104,7 +104,7 @@ type Usuario struct {
 	Username    string
 	Nome        string
 	Papel       string
-	CriadoEm   string
+	CriadoEm    string
 	UltimoLogin string
 }
 

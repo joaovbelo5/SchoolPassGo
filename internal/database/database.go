@@ -93,6 +93,8 @@ func createTables() error {
 		"ALTER TABLE configuracoes ADD COLUMN telegram_bot_token TEXT DEFAULT '';",
 		"ALTER TABLE alunos ADD COLUMN telefone_responsavel TEXT DEFAULT '';",
 		"ALTER TABLE alunos ADD COLUMN telegram_chat_id TEXT DEFAULT '';",
+		"CREATE INDEX IF NOT EXISTS idx_alunos_turma ON alunos(turma);",
+		"CREATE INDEX IF NOT EXISTS idx_acessos_data_hora ON acessos(data_hora);",
 	}
 
 	for _, m := range migrations {

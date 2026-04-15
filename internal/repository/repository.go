@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/joaob/schoolpassgo/internal/database"
@@ -55,7 +56,7 @@ func DeleteAluno(id int) error {
 
 // GetAlunos returns all students
 func GetAlunos() ([]models.Aluno, error) {
-	rows, err := database.DB.Query("SELECT id, nome, turma, turno, foto, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos ORDER BY nome ASC")
+	rows, err := database.DB.Query("SELECT id, nome, turma, turno, CASE WHEN length(foto) > 10 THEN '/api/alunos/' || id || '/foto' ELSE '' END, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos ORDER BY nome ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +71,25 @@ func GetAlunos() ([]models.Aluno, error) {
 		alunos = append(alunos, a)
 	}
 	return alunos, nil
+}
+
+// GetTurmas returns all unique classes
+func GetTurmas() ([]string, error) {
+	rows, err := database.DB.Query("SELECT DISTINCT turma FROM alunos WHERE turma != '' AND turma IS NOT NULL ORDER BY turma ASC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var turmas []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		turmas = append(turmas, t)
+	}
+	return turmas, nil
 }
 
 // GetAlunoByBarcode finds a student by their barcode
@@ -89,7 +109,7 @@ func GetLastAcesso(alunoID int) (models.Acesso, error) {
 	var dataHoraStr string
 	err := database.DB.QueryRow("SELECT id, aluno_id, data_hora, tipo FROM acessos WHERE aluno_id = ? ORDER BY data_hora DESC LIMIT 1", alunoID).
 		Scan(&a.ID, &a.AlunoID, &dataHoraStr, &a.Tipo)
-		
+
 	if err == nil {
 		a.DataHora, _ = time.Parse(time.RFC3339Nano, dataHoraStr)
 	}
@@ -193,7 +213,7 @@ func UpdateTelegramChatID(telefone, chatID string) (models.Aluno, error) {
 
 // GetAlunosByTurma returns all students in a specific class
 func GetAlunosByTurma(turma string) ([]models.Aluno, error) {
-	rows, err := database.DB.Query("SELECT id, nome, turma, turno, foto, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos WHERE turma = ? ORDER BY nome ASC", turma)
+	rows, err := database.DB.Query("SELECT id, nome, turma, turno, CASE WHEN length(foto) > 10 THEN '/api/alunos/' || id || '/foto' ELSE '' END, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos WHERE turma = ? ORDER BY nome ASC", turma)
 	if err != nil {
 		return nil, err
 	}
@@ -216,6 +236,13 @@ func GetAluno(id int) (models.Aluno, error) {
 	err := database.DB.QueryRow("SELECT id, nome, turma, turno, foto, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos WHERE id = ?", id).
 		Scan(&a.ID, &a.Nome, &a.Turma, &a.Turno, &a.Foto, &a.CodigoBarras, &a.TelefoneResponsavel, &a.TelegramChatID)
 	return a, err
+}
+
+// GetAlunoFoto returns just the base64 photo for a student
+func GetAlunoFoto(id int) (string, error) {
+	var foto string
+	err := database.DB.QueryRow("SELECT COALESCE(foto, '') FROM alunos WHERE id = ?", id).Scan(&foto)
+	return foto, err
 }
 
 // GetAcessosMesTurma returns all entry logs for a class in a specific month
@@ -303,7 +330,7 @@ func GetOcorrenciaByID(id int) (models.Ocorrencia, error) {
 	err := database.DB.QueryRow(`
 		SELECT id, aluno_id, data_hora, classificacao, descricao, registrado_por, historico_edicao 
 		FROM ocorrencias WHERE id = ?`, id).Scan(&o.ID, &o.AlunoID, &dataHoraStr, &o.Classificacao, &o.Descricao, &o.RegistradoPor, &o.HistoricoEdicao)
-	
+
 	if err == nil {
 		o.DataHora, _ = time.Parse(time.RFC3339Nano, dataHoraStr)
 	}
@@ -359,7 +386,7 @@ func ArchiveDatabase(ano string) error {
 
 	// Wait! We successfully copied the DB. Now completely wipe current DB tables.
 	// Since we keep config table, we only delete from volatile ones.
-	
+
 	ctx := context.Background()
 	tx, err := database.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -472,4 +499,110 @@ func GetDashboardStats() (models.DashboardStats, error) {
 	}
 
 	return stats, nil
+}
+
+// ──── BARCODE GENERATOR ────
+
+// BarcodeGenerator gerencia a criação inteligente e performática de códigos de barras.
+type BarcodeGenerator struct {
+	TurmaCodes   map[string]int
+	TurmaCounts  map[string]int
+	MaxTurmaCode int
+}
+
+// NewBarcodeGenerator carrega o estado atual das turmas do banco numa única query.
+func NewBarcodeGenerator() *BarcodeGenerator {
+	bg := &BarcodeGenerator{
+		TurmaCodes:   make(map[string]int),
+		TurmaCounts:  make(map[string]int),
+		MaxTurmaCode: 0,
+	}
+
+	// Busca o cache do maior número por turma focado em códigos de 9 dígitos.
+	rows, err := database.DB.Query(`
+		SELECT turma, 
+		       MAX(CAST(substr(codigo_barras, 4, 2) AS INTEGER)) as tt,
+		       MAX(CAST(substr(codigo_barras, 6, 4) AS INTEGER)) as nnnn
+		FROM alunos 
+		WHERE length(codigo_barras) = 9
+		GROUP BY turma
+	`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var turma string
+			var tt, nnnn sql.NullInt64
+			if err := rows.Scan(&turma, &tt, &nnnn); err == nil {
+				turmaNormal := strings.ToUpper(strings.TrimSpace(turma))
+				if tt.Valid {
+					bg.TurmaCodes[turmaNormal] = int(tt.Int64)
+					if int(tt.Int64) > bg.MaxTurmaCode {
+						bg.MaxTurmaCode = int(tt.Int64)
+					}
+				}
+				if nnnn.Valid {
+					bg.TurmaCounts[turmaNormal] = int(nnnn.Int64)
+				}
+			}
+		}
+	}
+	return bg
+}
+
+// IsBarcodeDuplicate faz uma busca rápida pra saber se um código exato já existe.
+func IsBarcodeDuplicate(code string) bool {
+	var id int
+	err := database.DB.QueryRow("SELECT id FROM alunos WHERE codigo_barras = ?", code).Scan(&id)
+	return err == nil && id > 0
+}
+
+// Generate cria o código para um aluno novo baseado em sua Turma e Turno.
+func (bg *BarcodeGenerator) Generate(turma, turno string) string {
+	turmaNormal := strings.ToUpper(strings.TrimSpace(turma))
+	anoAtual := time.Now().Year() % 100 // ex: 2026 -> 26
+
+	turnoUpper := strings.ToUpper(strings.TrimSpace(turno))
+	shiftDigit := 0
+	switch {
+	case strings.Contains(turnoUpper, "MANH"):
+		shiftDigit = 1
+	case strings.Contains(turnoUpper, "TARD") || strings.Contains(turnoUpper, "VESPERTINO"):
+		shiftDigit = 2
+	case strings.Contains(turnoUpper, "NOIT") || strings.Contains(turnoUpper, "NOTURNO"):
+		shiftDigit = 3
+	case strings.Contains(turnoUpper, "INTEGRAL"):
+		shiftDigit = 4
+	default:
+		shiftDigit = 5 // Desconhecido
+	}
+
+	tt, exists := bg.TurmaCodes[turmaNormal]
+	if !exists {
+		bg.MaxTurmaCode++
+		if bg.MaxTurmaCode > 99 {
+			bg.MaxTurmaCode = 99
+		}
+		tt = bg.MaxTurmaCode
+		bg.TurmaCodes[turmaNormal] = tt
+	}
+
+	nnnn := bg.TurmaCounts[turmaNormal]
+
+	var finalCode string
+	for {
+		nnnn++
+		if nnnn > 9999 {
+			nnnn = 1
+		}
+
+		finalCode = fmt.Sprintf("%02d%d%02d%04d", anoAtual, shiftDigit, tt, nnnn)
+
+		if !IsBarcodeDuplicate(finalCode) {
+			break
+		}
+	}
+
+	bg.TurmaCounts[turmaNormal] = nnnn
+
+	return finalCode
 }
