@@ -32,6 +32,9 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+// photoSemaphore limits concurrent photo decode operations to control RAM usage
+var photoSemaphore = make(chan struct{}, 3)
+
 func sendJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -105,7 +108,17 @@ func GetTurmasHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAlunosHandler(w http.ResponseWriter, r *http.Request) {
-	alunos, err := repository.GetAlunos()
+	turmaFilter := r.URL.Query().Get("turma")
+
+	var alunos []models.Aluno
+	var err error
+
+	if turmaFilter != "" {
+		alunos, err = repository.GetAlunosByTurma(turmaFilter)
+	} else {
+		alunos, err = repository.GetAlunos()
+	}
+
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Erro ao listar alunos")
 		return
@@ -123,6 +136,10 @@ func GetAlunoFotoHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ID inválido", http.StatusBadRequest)
 		return
 	}
+
+	// Acquire semaphore — limits concurrent photo decodes to control RAM
+	photoSemaphore <- struct{}{}
+	defer func() { <-photoSemaphore }()
 
 	foto, err := repository.GetAlunoFoto(id)
 	if err != nil || foto == "" || len(foto) < 10 {
@@ -143,16 +160,15 @@ func GetAlunoFotoHandler(w http.ResponseWriter, r *http.Request) {
 		rawData = foto
 	}
 
-	data, err := base64.StdEncoding.DecodeString(rawData)
-	if err != nil {
-		http.Error(w, "Erro ao decodificar", http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", mimeType)
-	w.Header().Set("Cache-Control", "public, max-age=86400") // Cache por 1 dia no front
+	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+
+	// Streaming decode — avoids allocating the entire decoded []byte in memory
+	decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(rawData))
+	io.Copy(w, decoder)
+
+	// Release the base64 string from this scope as soon as possible
 }
 
 func CreateAlunoHandler(w http.ResponseWriter, r *http.Request) {
@@ -290,8 +306,6 @@ func TotemRegistroHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err == nil && lastAcesso.ID > 0 {
 		now := time.Now()
-		isSameDay := lastAcesso.DataHora.Year() == now.Year() &&
-			lastAcesso.DataHora.YearDay() == now.YearDay()
 
 		elapsed := time.Since(lastAcesso.DataHora)
 		if elapsed.Minutes() < float64(delay) {
@@ -299,10 +313,14 @@ func TotemRegistroHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Apenas alterna para "saida" se for "entrada" NO MESMO DIA
+		isSameDay := lastAcesso.DataHora.Year() == now.Year() &&
+			lastAcesso.DataHora.YearDay() == now.YearDay()
+
+		// Alterna para "saida" se o último registro do MESMO DIA foi "entrada"
 		if isSameDay && lastAcesso.Tipo == "entrada" {
 			tipoNovo = "saida"
 		}
+		// Caso contrário (dia diferente ou último foi saída) → entrada
 	}
 
 	if err := repository.RegisterAcesso(aluno.ID, tipoNovo); err != nil {
@@ -312,7 +330,17 @@ func TotemRegistroHandler(w http.ResponseWriter, r *http.Request) {
 
 	if aluno.TelegramChatID != "" {
 		horaFormatada := time.Now().Format("15:04")
-		texto := "*" + aluno.Nome + "* realizou a *" + strings.ToUpper(tipoNovo) + "* às *" + horaFormatada + "*."
+		var texto string
+		if tipoNovo == "saida" {
+			duracao := time.Since(lastAcesso.DataHora)
+			horas := int(duracao.Hours())
+			minutos := int(duracao.Minutes()) % 60
+			texto = fmt.Sprintf("*%s* realizou a *SAÍDA* às *%s*.\n⏱ Permanência: *%dh%02dmin*",
+				aluno.Nome, horaFormatada, horas, minutos)
+		} else {
+			texto = fmt.Sprintf("*%s* realizou a *ENTRADA* às *%s*.",
+				aluno.Nome, horaFormatada)
+		}
 		telegram.SendMessage(aluno.TelegramChatID, texto)
 	}
 
