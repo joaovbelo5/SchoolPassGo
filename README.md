@@ -193,15 +193,6 @@ go run ./cmd/admin delete <username>
 
 ---
 
-## 🚀 Possíveis Melhorias
-
-- [ ] Implementação de leitura via QR Code.
-- [ ] Exportação de relatórios em formato PDF/Excel.
-- [ ] Aplicativo Mobile nativo para professores.
-- [ ] Integração com APIs de reconhecimento facial.
-
----
-
 ## 📄 Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
