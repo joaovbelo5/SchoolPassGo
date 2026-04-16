@@ -176,6 +176,10 @@ func CreateAlunoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.ID = id
+	// Clear photo blob from response — client already has it, no need to echo ~300KB back
+	if a.Foto != "" {
+		a.Foto = "/api/alunos/" + strconv.Itoa(a.ID) + "/foto"
+	}
 	sendJSON(w, http.StatusCreated, a)
 }
 
@@ -200,16 +204,26 @@ func UpdateAlunoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if a.Foto == "" {
-		// Mantém a foto atual
-		velho, _ := repository.GetAlunoFoto(id)
-		a.Foto = velho
+		// No new photo sent — update everything EXCEPT foto column (avoids loading blob into RAM)
+		if err := repository.UpdateAlunoSemFoto(a); err != nil {
+			sendError(w, http.StatusInternalServerError, "Erro ao atualizar aluno: "+err.Error())
+			return
+		}
 	} else if a.Foto == "__EXCLUIR__" {
 		a.Foto = ""
+		if err := repository.UpdateAluno(a); err != nil {
+			sendError(w, http.StatusInternalServerError, "Erro ao atualizar aluno: "+err.Error())
+			return
+		}
+	} else {
+		if err := repository.UpdateAluno(a); err != nil {
+			sendError(w, http.StatusInternalServerError, "Erro ao atualizar aluno: "+err.Error())
+			return
+		}
 	}
-	if err := repository.UpdateAluno(a); err != nil {
-		sendError(w, http.StatusInternalServerError, "Erro ao atualizar aluno: "+err.Error())
-		return
-	}
+
+	// Return lightweight response — never echo the photo blob back
+	a.Foto = "/api/alunos/" + strconv.Itoa(a.ID) + "/foto"
 	sendJSON(w, http.StatusOK, a)
 }
 

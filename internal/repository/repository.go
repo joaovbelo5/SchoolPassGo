@@ -41,10 +41,17 @@ func CreateAluno(a models.Aluno) (int, error) {
 	return int(id), err
 }
 
-// UpdateAluno updates an existing student
+// UpdateAluno updates an existing student (including photo)
 func UpdateAluno(a models.Aluno) error {
 	_, err := database.DB.Exec("UPDATE alunos SET nome=?, turma=?, turno=?, foto=?, codigo_barras=?, telefone_responsavel=?, telegram_chat_id=? WHERE id=?",
 		a.Nome, a.Turma, a.Turno, a.Foto, a.CodigoBarras, a.TelefoneResponsavel, a.TelegramChatID, a.ID)
+	return err
+}
+
+// UpdateAlunoSemFoto updates a student without touching the foto column (avoids loading blob into RAM)
+func UpdateAlunoSemFoto(a models.Aluno) error {
+	_, err := database.DB.Exec("UPDATE alunos SET nome=?, turma=?, turno=?, codigo_barras=?, telefone_responsavel=?, telegram_chat_id=? WHERE id=?",
+		a.Nome, a.Turma, a.Turno, a.CodigoBarras, a.TelefoneResponsavel, a.TelegramChatID, a.ID)
 	return err
 }
 
@@ -149,13 +156,14 @@ func GetRecentAcessos(limit int) ([]models.Acesso, error) {
 	return acessos, nil
 }
 
-// GetAcessosByAluno returns the access logs for a specific student
+// GetAcessosByAluno returns the access logs for a specific student (limited to most recent 200)
 func GetAcessosByAluno(alunoID int) ([]models.Acesso, error) {
 	rows, err := database.DB.Query(`
 		SELECT id, aluno_id, data_hora, tipo
 		FROM acessos 
 		WHERE aluno_id = ?
-		ORDER BY data_hora DESC`, alunoID)
+		ORDER BY data_hora DESC
+		LIMIT 200`, alunoID)
 	if err != nil {
 		return nil, err
 	}
