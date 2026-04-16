@@ -447,6 +447,9 @@ func ArchiveDatabase(ano string) error {
 func GetDashboardStats() (models.DashboardStats, error) {
 	var stats models.DashboardStats
 
+	// Use Go's local date to avoid SQLite DATE() failing on RFC3339 with tz offsets
+	hoje := time.Now().Format("2006-01-02")
+
 	// Total students
 	database.DB.QueryRow("SELECT COUNT(*) FROM alunos").Scan(&stats.TotalAlunos)
 
@@ -462,8 +465,8 @@ func GetDashboardStats() (models.DashboardStats, error) {
 	// Active occurrences (not in trash)
 	database.DB.QueryRow("SELECT COUNT(*) FROM ocorrencias WHERE deletado_em IS NULL").Scan(&stats.TotalOcorrencias)
 
-	// Entries and exits today
-	rows, err := database.DB.Query("SELECT tipo, COUNT(*) FROM acessos WHERE DATE(data_hora) = DATE('now','localtime') GROUP BY tipo")
+	// Entries and exits today — use substr to extract date from RFC3339 string
+	rows, err := database.DB.Query("SELECT tipo, COUNT(*) FROM acessos WHERE substr(data_hora,1,10) = ? GROUP BY tipo", hoje)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -485,10 +488,10 @@ func GetDashboardStats() (models.DashboardStats, error) {
 		       (SELECT COUNT(*) FROM alunos a2 WHERE a2.turno = a.turno) as total
 		FROM acessos ac
 		JOIN alunos a ON ac.aluno_id = a.id
-		WHERE ac.tipo = 'entrada' AND DATE(ac.data_hora) = DATE('now','localtime')
+		WHERE ac.tipo = 'entrada' AND substr(ac.data_hora,1,10) = ?
 		GROUP BY a.turno
 		ORDER BY a.turno ASC
-	`)
+	`, hoje)
 	if err == nil {
 		defer shiftRows.Close()
 		for shiftRows.Next() {
