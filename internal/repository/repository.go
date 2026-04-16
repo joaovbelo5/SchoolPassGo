@@ -92,10 +92,10 @@ func GetTurmas() ([]string, error) {
 	return turmas, nil
 }
 
-// GetAlunoByBarcode finds a student by their barcode
+// GetAlunoByBarcode finds a student by their barcode (without loading the photo blob)
 func GetAlunoByBarcode(barcode string) (models.Aluno, error) {
 	var a models.Aluno
-	err := database.DB.QueryRow("SELECT id, nome, turma, turno, foto, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos WHERE codigo_barras = ?", barcode).
+	err := database.DB.QueryRow("SELECT id, nome, turma, turno, CASE WHEN length(foto) > 10 THEN '/api/alunos/' || id || '/foto' ELSE '' END, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos WHERE codigo_barras = ?", barcode).
 		Scan(&a.ID, &a.Nome, &a.Turma, &a.Turno, &a.Foto, &a.CodigoBarras, &a.TelefoneResponsavel, &a.TelegramChatID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return a, errors.New("aluno não encontrado")
@@ -230,12 +230,31 @@ func GetAlunosByTurma(turma string) ([]models.Aluno, error) {
 	return alunos, nil
 }
 
-// GetAluno returns a single student by ID
+// GetAluno returns a single student by ID (without loading the photo blob)
 func GetAluno(id int) (models.Aluno, error) {
 	var a models.Aluno
-	err := database.DB.QueryRow("SELECT id, nome, turma, turno, foto, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos WHERE id = ?", id).
+	err := database.DB.QueryRow("SELECT id, nome, turma, turno, CASE WHEN length(foto) > 10 THEN '/api/alunos/' || id || '/foto' ELSE '' END, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos WHERE id = ?", id).
 		Scan(&a.ID, &a.Nome, &a.Turma, &a.Turno, &a.Foto, &a.CodigoBarras, &a.TelefoneResponsavel, &a.TelegramChatID)
 	return a, err
+}
+
+// GetAlunosNomeTurma returns only id, nome and turma for all students (lightweight, for duplicate detection)
+func GetAlunosNomeTurma() ([]models.Aluno, error) {
+	rows, err := database.DB.Query("SELECT id, nome, turma FROM alunos ORDER BY nome ASC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var alunos []models.Aluno
+	for rows.Next() {
+		var a models.Aluno
+		if err := rows.Scan(&a.ID, &a.Nome, &a.Turma); err != nil {
+			return nil, err
+		}
+		alunos = append(alunos, a)
+	}
+	return alunos, nil
 }
 
 // GetAlunoFoto returns just the base64 photo for a student

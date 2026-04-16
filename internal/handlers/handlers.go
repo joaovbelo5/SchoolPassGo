@@ -302,6 +302,9 @@ func TotemRegistroHandler(w http.ResponseWriter, r *http.Request) {
 		telegram.SendMessage(aluno.TelegramChatID, texto)
 	}
 
+	// Clear photo blob from response to save bandwidth/memory
+	aluno.Foto = ""
+
 	sendJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Registro efetuado",
 		"aluno":   aluno,
@@ -596,7 +599,7 @@ func GetArquivoAlunosHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer archDB.Close()
 
-	rows, err := archDB.Query("SELECT id, nome, turma, turno, foto, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos ORDER BY nome ASC")
+	rows, err := archDB.Query("SELECT id, nome, turma, turno, CASE WHEN length(foto) > 10 THEN 1 ELSE 0 END, codigo_barras, COALESCE(telefone_responsavel,''), COALESCE(telegram_chat_id,'') FROM alunos ORDER BY nome ASC")
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Erro ao ler base")
 		return
@@ -606,7 +609,11 @@ func GetArquivoAlunosHandler(w http.ResponseWriter, r *http.Request) {
 	var alunos []models.Aluno
 	for rows.Next() {
 		var a models.Aluno
-		if err := rows.Scan(&a.ID, &a.Nome, &a.Turma, &a.Turno, &a.Foto, &a.CodigoBarras, &a.TelefoneResponsavel, &a.TelegramChatID); err == nil {
+		var temFoto int
+		if err := rows.Scan(&a.ID, &a.Nome, &a.Turma, &a.Turno, &temFoto, &a.CodigoBarras, &a.TelefoneResponsavel, &a.TelegramChatID); err == nil {
+			if temFoto == 1 {
+				a.Foto = "tem_foto"
+			}
 			alunos = append(alunos, a)
 		}
 	}
@@ -945,8 +952,8 @@ func ImportAlunosHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load existing students for duplicate detection
-	existingStudents, _ := repository.GetAlunos()
+	// Load existing students for duplicate detection (lightweight query — no photo blob)
+	existingStudents, _ := repository.GetAlunosNomeTurma()
 	existingSet := make(map[string]bool)
 	for _, s := range existingStudents {
 		key := strings.ToLower(strings.TrimSpace(s.Nome)) + "|" + strings.ToLower(strings.TrimSpace(s.Turma))

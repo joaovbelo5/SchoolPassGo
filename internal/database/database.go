@@ -23,6 +23,12 @@ func InitDB(dbPath string) error {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	// Performance PRAGMAs
+	DB.Exec("PRAGMA journal_mode=WAL;")
+	DB.Exec("PRAGMA cache_size=-8000;") // 8MB cache
+	DB.Exec("PRAGMA busy_timeout=5000;")
+	DB.SetMaxOpenConns(1) // SQLite is single-writer
+
 	err = createTables()
 	if err != nil {
 		return fmt.Errorf("failed to create tables: %w", err)
@@ -95,6 +101,8 @@ func createTables() error {
 		"ALTER TABLE alunos ADD COLUMN telegram_chat_id TEXT DEFAULT '';",
 		"CREATE INDEX IF NOT EXISTS idx_alunos_turma ON alunos(turma);",
 		"CREATE INDEX IF NOT EXISTS idx_acessos_data_hora ON acessos(data_hora);",
+		"CREATE INDEX IF NOT EXISTS idx_acessos_aluno_id ON acessos(aluno_id);",
+		"CREATE INDEX IF NOT EXISTS idx_ocorrencias_aluno_id ON ocorrencias(aluno_id);",
 	}
 
 	for _, m := range migrations {
